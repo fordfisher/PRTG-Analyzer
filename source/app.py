@@ -407,15 +407,29 @@ async def apply_update() -> JSONResponse:
 
     def _launch_new_exe() -> None:
         try:
-            flags = subprocess.CREATE_NEW_PROCESS_GROUP
             if sys.platform == "win32":
-                flags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)
-            subprocess.Popen(
-                [str(exe_path)],
-                cwd=str(new_dir),
-                creationflags=flags,
-                close_fds=True,
-            )
+                # Use cmd "start" so the new process is fully detached and gets its own window
+                subprocess.Popen(
+                    [
+                        "cmd.exe",
+                        "/C",
+                        "start",
+                        "",
+                        "/D",
+                        str(new_dir),
+                        str(exe_path),
+                    ],
+                    cwd=str(new_dir),
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                    | getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10),
+                    close_fds=True,
+                )
+            else:
+                subprocess.Popen(
+                    [str(exe_path)],
+                    cwd=str(new_dir),
+                    close_fds=True,
+                )
         except Exception as e:
             log.exception("Failed to start new EXE: %s", e)
 

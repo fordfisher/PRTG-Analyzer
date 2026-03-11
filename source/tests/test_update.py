@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+import sys
+import tempfile
 import time
+import zipfile
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
@@ -110,6 +114,74 @@ class TestApplyUpdate:
             with patch.object(app_module.sys, "frozen", True, create=True):
                 resp = client.post("/api/apply-update")
                 assert resp.status_code == 400
+
+    @patch("app.subprocess.Popen")
+    @patch("app.os._exit")
+    @patch("threading.Timer")
+    @patch("app.urllib.request.urlretrieve")
+    @patch("app._install_dir")
+    @patch("app.urllib.request.urlopen")
+    def test_apply_update_downloads_extracts_and_launches(
+        self,
+        mock_urlopen,
+        mock_install_dir,
+        mock_urlretrieve,
+        mock_timer,
+        mock_exit,
+        mock_popen,
+    ):
+        """With a real zip, apply-update extracts and runs batch + launch (Timer runs immediately)."""
+        app_module._UPDATE_CACHE.clear()
+        mock_urlopen.return_value = _mock_urlopen(FAKE_RELEASE)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            current_dir = tmp_path / "PyPRTG_CLA_current"
+            current_dir.mkdir()
+            mock_install_dir.return_value = current_dir
+
+            # Zip: PyPRTG_CLA_v99.0/apply-update.bat and PyPRTG_CLA_v99.0/PyPRTG_CLA.exe
+            zip_buf = BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                zf.writestr("PyPRTG_CLA_v99.0/apply-update.bat", "@echo off\n")
+                zf.writestr("PyPRTG_CLA_v99.0/PyPRTG_CLA.exe", b"")
+            zip_buf.seek(0)
+            zip_bytes = zip_buf.read()
+
+            def copy_zip(url, path):
+                Path(path).write_bytes(zip_bytes)
+
+            mock_urlretrieve.side_effect = copy_zip
+
+            # Run scheduled callbacks immediately so launch runs during request
+            def run_now(interval, func):
+                func()
+                return MagicMock()  # .start() is called on this
+
+            mock_timer.side_effect = run_now
+            mock_exit.side_effect = lambda _: None
+
+            with patch.object(app_module.sys, "frozen", True, create=True):
+                resp = client.post("/api/apply-update")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "updating"
+        assert body["new_version"] == "99.0"
+
+        # Batch was started
+        popen_calls = [c[0][0] for c in mock_popen.call_args_list]
+        assert any("apply-update.bat" in str(c) for c in popen_calls)
+
+        # On Windows, launch uses cmd /C start ... exe
+        if sys.platform == "win32":
+            start_calls = [
+                args
+                for args in popen_calls
+                if isinstance(args, (list, tuple)) and len(args) >= 5 and args[2] == "start"
+            ]
+            assert start_calls, "Expected Popen(cmd /C start ... exe)"
+            assert any("PyPRTG_CLA.exe" in str(args) for args in start_calls)
 
 
 class TestVersionTuple:
