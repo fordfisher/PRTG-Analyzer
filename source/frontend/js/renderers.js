@@ -362,41 +362,83 @@ export function renderStatusSnapshot(element, vm, state) {
 
   const boot = vm.lastBootSnapshot || {};
   const bootSensors = boot.total_sensors ?? vm.core.total_sensors ?? null;
+  const isJson = snap.source_format === "json";
 
-  const impactLevels = ["Very low", "Low", "Medium", "High", "Very high"];
-  const impactRows = impactLevels.map((level) => {
-    const nowCount = snap.impact_distribution?.[level]?.total ?? 0;
-    const bootImpact = boot.global_impact_distribution?.[level] ?? vm.core.global_impact_distribution?.[level];
-    const bootCount = bootImpact?.total ?? null;
-    return `<div class="kv-row">
-      <div class="kv-key">${escapeHtml(level)}</div>
-      <div>${escapeHtml(String(nowCount))} sensors${_deltaHtml(nowCount, bootCount, "")}</div>
-    </div>`;
-  }).join("");
+  const metricCards = [];
+  metricCards.push(`<div class="metric-card">
+    <div class="section-kicker">Total Sensors</div>
+    <div class="metric-value">${escapeHtml(String(snap.total_sensors ?? "—"))}</div>
+    <div class="muted-text">${_deltaHtml(snap.total_sensors, bootSensors, "")}</div>
+  </div>`);
+
+  if (isJson) {
+    metricCards.push(`<div class="metric-card">
+      <div class="section-kicker">Up</div>
+      <div class="metric-value" style="color:#22c55e">${escapeHtml(String(snap.sensors_up ?? "—"))}</div>
+    </div>`);
+    metricCards.push(`<div class="metric-card">
+      <div class="section-kicker">Warning</div>
+      <div class="metric-value" style="color:#eab308">${escapeHtml(String(snap.sensors_warning ?? "—"))}</div>
+    </div>`);
+    metricCards.push(`<div class="metric-card">
+      <div class="section-kicker">Down / Alarm</div>
+      <div class="metric-value" style="color:#ef4444">${escapeHtml(String(snap.sensors_down ?? "—"))}</div>
+    </div>`);
+  } else {
+    if (snap.server_cpu_load_pct != null) {
+      metricCards.push(`<div class="metric-card">
+        <div class="section-kicker">Server CPU Load</div>
+        <div class="metric-value">${escapeHtml(String(snap.server_cpu_load_pct))}%</div>
+      </div>`);
+    }
+    if (snap.requests_per_second != null) {
+      metricCards.push(`<div class="metric-card">
+        <div class="section-kicker">Requests/Second</div>
+        <div class="metric-value">${escapeHtml(String(snap.requests_per_second))}</div>
+      </div>`);
+    }
+    if (snap.slow_request_ratio_pct != null) {
+      metricCards.push(`<div class="metric-card">
+        <div class="section-kicker">Slow Request Ratio</div>
+        <div class="metric-value">${escapeHtml(String(snap.slow_request_ratio_pct))}%</div>
+      </div>`);
+    }
+  }
+
+  let detailSection = "";
+  if (isJson) {
+    const statusRows = [
+      ["Paused", snap.sensors_paused],
+      ["Unknown", snap.sensors_unknown],
+    ].filter(([, v]) => v != null && v > 0)
+      .map(([label, val]) => `<div class="kv-row"><div class="kv-key">${escapeHtml(label)}</div><div>${escapeHtml(String(val))}</div></div>`)
+      .join("");
+    if (statusRows) {
+      detailSection = `<div class="section-title" style="margin-top:12px">Other Status</div>
+        <div class="section-stack compact-gap">${statusRows}</div>`;
+    }
+    if (snap.prtg_version) {
+      detailSection += `<div class="muted-text" style="margin-top:8px">PRTG Version: ${escapeHtml(snap.prtg_version)}</div>`;
+    }
+  } else {
+    const impactLevels = ["Very low", "Low", "Medium", "High", "Very high"];
+    const impactRows = impactLevels.map((level) => {
+      const nowCount = snap.impact_distribution?.[level]?.total ?? 0;
+      const bootImpact = boot.global_impact_distribution?.[level] ?? vm.core.global_impact_distribution?.[level];
+      const bootCount = bootImpact?.total ?? null;
+      return `<div class="kv-row">
+        <div class="kv-key">${escapeHtml(level)}</div>
+        <div>${escapeHtml(String(nowCount))} sensors${_deltaHtml(nowCount, bootCount, "")}</div>
+      </div>`;
+    }).join("");
+    detailSection = `<div class="section-title" style="margin-top:12px">Sensor Impact (from bundle)</div>
+      <div class="section-stack compact-gap">${impactRows}</div>`;
+  }
 
   const html = `<div class="section-stack">
     <div class="section-title">Status Snapshot (from bundle)</div>
-    <div class="metric-grid">
-      <div class="metric-card">
-        <div class="section-kicker">Sensors</div>
-        <div class="metric-value">${escapeHtml(String(snap.total_sensors ?? "—"))}</div>
-        <div class="muted-text">${_deltaHtml(snap.total_sensors, bootSensors, "")}</div>
-      </div>
-      <div class="metric-card">
-        <div class="section-kicker">Server CPU Load</div>
-        <div class="metric-value">${snap.server_cpu_load_pct != null ? escapeHtml(String(snap.server_cpu_load_pct)) + "%" : "—"}</div>
-      </div>
-      <div class="metric-card">
-        <div class="section-kicker">Requests/Second</div>
-        <div class="metric-value">${snap.requests_per_second != null ? escapeHtml(String(snap.requests_per_second)) : "—"}</div>
-      </div>
-      <div class="metric-card">
-        <div class="section-kicker">Slow Request Ratio</div>
-        <div class="metric-value">${snap.slow_request_ratio_pct != null ? escapeHtml(String(snap.slow_request_ratio_pct)) + "%" : "—"}</div>
-      </div>
-    </div>
-    <div class="section-title" style="margin-top:12px">Sensor Impact (from bundle)</div>
-    <div class="section-stack compact-gap">${impactRows}</div>
+    <div class="metric-grid">${metricCards.join("")}</div>
+    ${detailSection}
   </div>`;
 
   setHtmlIfChanged(element, html);

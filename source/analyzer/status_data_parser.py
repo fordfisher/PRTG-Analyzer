@@ -1,11 +1,14 @@
-"""Parse PRTG Status Data HTML files from support bundles.
+"""Parse PRTG Status Data files from support bundles.
 
-Extracts current-state metrics that are not available from Core.log alone:
-server CPU load, live sensor counts, impact distribution, requests/second,
-and slow request ratio.
+Handles two formats found in support bundles:
+1. **HTML** (``PRTG Status Data.htm``) – rich page with CPU load, impact
+   distribution, requests/second, slow request ratio, etc.
+2. **JSON** (``Status Data.htm``) – lightweight JSON blob with sensor
+   status counts (up, warning, paused, unknown, down/alarm).
 """
 from __future__ import annotations
 
+import json
 import re
 from html.parser import HTMLParser
 from pathlib import Path
@@ -82,19 +85,52 @@ def _sum_sensor_counts(text: str) -> int:
     return sum(int(m.group(1)) for m in _COUNT_RE.finditer(text))
 
 
-def parse_status_data(path: Path) -> Optional[Dict[str, Any]]:
-    """Parse a PRTG Status Data HTML file and return a snapshot dict, or None on failure."""
+def _safe_int(value: Any) -> Optional[int]:
+    """Coerce a JSON value to int, returning None on failure."""
+    if value is None or value == "":
+        return None
     try:
-        raw = path.read_bytes()
-        for enc in ("utf-8", "utf-8-sig", "latin-1"):
-            try:
-                html_text = raw.decode(enc)
-                break
-            except (UnicodeDecodeError, ValueError):
-                continue
-        else:
-            return None
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
+
+def _parse_json_status(text: str) -> Optional[Dict[str, Any]]:
+    """Parse the JSON-format ``Status Data.htm`` from support bundles."""
+    try:
+        data = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+
+    up = _safe_int(data.get("UpSens")) or 0
+    warn = _safe_int(data.get("WarnSens")) or 0
+    paused = _safe_int(data.get("PausedSens")) or 0
+    unknown = _safe_int(data.get("UnknownSens")) or 0
+    alarms = _safe_int(data.get("Alarms")) or 0
+    down = _safe_int(data.get("DownSens")) or 0
+    total = up + warn + paused + unknown + alarms + down
+
+    if total == 0:
+        return None
+
+    result: Dict[str, Any] = {
+        "total_sensors": total,
+        "sensors_up": up,
+        "sensors_warning": warn,
+        "sensors_paused": paused,
+        "sensors_unknown": unknown,
+        "sensors_down": alarms + down,
+        "prtg_version": data.get("Version"),
+        "source_format": "json",
+    }
+    return result
+
+
+def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
+    """Parse the HTML-format ``PRTG Status Data.htm`` from support bundles."""
+    try:
         parser = _SectionExtractor()
         parser.feed(html_text)
         sections = parser.sections
@@ -157,4 +193,27 @@ def parse_status_data(path: Path) -> Optional[Dict[str, Any]]:
     if not has_data:
         return None
 
+    result["source_format"] = "html"
     return result
+
+
+def parse_status_data(path: Path) -> Optional[Dict[str, Any]]:
+    """Parse a PRTG Status Data file (HTML or JSON) and return a snapshot dict, or None on failure."""
+    try:
+        raw = path.read_bytes()
+        for enc in ("utf-8", "utf-8-sig", "latin-1"):
+            try:
+                text = raw.decode(enc)
+                break
+            except (UnicodeDecodeError, ValueError):
+                continue
+        else:
+            return None
+    except Exception:
+        return None
+
+    stripped = text.lstrip()
+    if stripped.startswith("{"):
+        return _parse_json_status(text)
+
+    return _parse_html_status(text)

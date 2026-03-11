@@ -1,4 +1,4 @@
-"""Tests for the PRTG Status Data HTML parser."""
+"""Tests for the PRTG Status Data parser (HTML and JSON formats)."""
 from __future__ import annotations
 
 import tempfile
@@ -130,3 +130,43 @@ def test_parse_http_request_percentages() -> None:
     assert result["http_requests_gt_500ms_pct"] == 5.0
     assert result["http_requests_gt_1000ms_pct"] == 2.0
     assert result["http_requests_gt_5000ms_pct"] == 1.0
+
+
+_JSON_STATUS = """{
+  "NewMessages": "0",
+  "Alarms": "27",
+  "UpSens": "6932",
+  "WarnSens": "14",
+  "PausedSens": "63",
+  "UnknownSens": "7",
+  "Version": "25.2.108.1358+",
+  "Clock": "3/10/2026 4:24:15 AM",
+  "MaxSensorCount": "Unlimited"
+}"""
+
+
+def test_parse_json_status_data() -> None:
+    path = _write_html(_JSON_STATUS)
+    result = parse_status_data(path)
+    assert result is not None
+    assert result["source_format"] == "json"
+    assert result["total_sensors"] == 6932 + 14 + 63 + 7 + 27
+    assert result["sensors_up"] == 6932
+    assert result["sensors_warning"] == 14
+    assert result["sensors_paused"] == 63
+    assert result["sensors_unknown"] == 7
+    assert result["sensors_down"] == 27
+    assert result["prtg_version"] == "25.2.108.1358+"
+
+
+def test_parse_json_empty_sensors_returns_none() -> None:
+    path = _write_html('{"UpSens": "0", "WarnSens": "0"}')
+    result = parse_status_data(path)
+    assert result is None
+
+
+def test_html_format_has_source_format() -> None:
+    path = _write_html(_MINIMAL_STATUS_HTML)
+    result = parse_status_data(path)
+    assert result is not None
+    assert result["source_format"] == "html"
