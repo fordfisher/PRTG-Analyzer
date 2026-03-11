@@ -1,0 +1,160 @@
+"""Parse PRTG Status Data HTML files from support bundles.
+
+Extracts current-state metrics that are not available from Core.log alone:
+server CPU load, live sensor counts, impact distribution, requests/second,
+and slow request ratio.
+"""
+from __future__ import annotations
+
+import re
+from html.parser import HTMLParser
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+
+_COUNT_RE = re.compile(r"(\d+)x\s+")
+_IMPACT_LEVELS = ("Very low", "Low", "Medium", "High", "Very high")
+_IMPACT_LOWER = {k.lower(): k for k in _IMPACT_LEVELS}
+
+
+class _SectionExtractor(HTMLParser):
+    """Single-pass HTML parser that collects key-value pairs grouped by <h2> section."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._current_section: str = ""
+        self._in_span = False
+        self._span_texts: List[str] = []
+        self._current_text = ""
+        self._pairs: Dict[str, List[Tuple[str, str]]] = {}
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        if tag == "h2":
+            self._current_text = ""
+        elif tag == "span":
+            self._in_span = True
+            self._current_text = ""
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "h2":
+            self._current_section = self._current_text.strip()
+            self._pairs.setdefault(self._current_section, [])
+            self._span_texts = []
+        elif tag == "span":
+            self._in_span = False
+            self._span_texts.append(self._current_text.strip())
+            self._current_text = ""
+        elif tag == "li":
+            if len(self._span_texts) >= 2 and self._current_section:
+                key = self._span_texts[0]
+                value = self._span_texts[1]
+                self._pairs[self._current_section].append((key, value))
+            self._span_texts = []
+
+    def handle_data(self, data: str) -> None:
+        self._current_text += data
+
+    @property
+    def sections(self) -> Dict[str, List[Tuple[str, str]]]:
+        return self._pairs
+
+
+def _find_section(sections: Dict[str, List[Tuple[str, str]]], *keywords: str) -> List[Tuple[str, str]]:
+    for name, pairs in sections.items():
+        lower = name.lower()
+        if all(kw.lower() in lower for kw in keywords):
+            return pairs
+    return []
+
+
+def _extract_int(text: str) -> Optional[int]:
+    text = text.replace(",", "").replace("\xa0", "").strip()
+    m = re.search(r"(\d+)", text)
+    return int(m.group(1)) if m else None
+
+
+def _extract_pct(text: str) -> Optional[float]:
+    m = re.search(r"([\d.]+)\s*%", text)
+    return float(m.group(1)) if m else None
+
+
+def _sum_sensor_counts(text: str) -> int:
+    return sum(int(m.group(1)) for m in _COUNT_RE.finditer(text))
+
+
+def parse_status_data(path: Path) -> Optional[Dict[str, Any]]:
+    """Parse a PRTG Status Data HTML file and return a snapshot dict, or None on failure."""
+    try:
+        raw = path.read_bytes()
+        for enc in ("utf-8", "utf-8-sig", "latin-1"):
+            try:
+                html_text = raw.decode(enc)
+                break
+            except (UnicodeDecodeError, ValueError):
+                continue
+        else:
+            return None
+
+        parser = _SectionExtractor()
+        parser.feed(html_text)
+        sections = parser.sections
+    except Exception:
+        return None
+
+    result: Dict[str, Any] = {}
+
+    sw_pairs = _find_section(sections, "Software Version") or _find_section(sections, "Server Information")
+    for key, val in sw_pairs:
+        if "CPU Load" in key:
+            result["server_cpu_load_pct"] = _extract_pct(val)
+
+    db_pairs = _find_section(sections, "Database Objects")
+    for key, val in db_pairs:
+        lower = key.lower().strip()
+        if lower == "sensors":
+            result["total_sensors"] = _extract_int(val)
+        elif lower == "probes":
+            result["probes"] = _extract_int(val)
+        elif lower == "devices":
+            result["devices"] = _extract_int(val)
+        elif lower == "groups":
+            result["groups"] = _extract_int(val)
+        elif lower == "channels":
+            result["channels"] = _extract_int(val)
+        elif lower == "requests/second":
+            result["requests_per_second"] = _extract_int(val)
+
+    web_pairs = _find_section(sections, "Web Server Activity")
+    for key, val in web_pairs:
+        if "Slow Request Ratio" in key:
+            result["slow_request_ratio_pct"] = _extract_pct(val)
+        elif key.strip() == "HTTP Requests > 500 ms":
+            result["http_requests_gt_500ms_pct"] = _extract_pct(val)
+        elif key.strip() == "HTTP Requests > 1000 ms":
+            result["http_requests_gt_1000ms_pct"] = _extract_pct(val)
+        elif key.strip() == "HTTP Requests > 5000 ms":
+            result["http_requests_gt_5000ms_pct"] = _extract_pct(val)
+
+    impact_pairs = _find_section(sections, "Impact on System Performance")
+    impact_dist: Dict[str, Dict[str, Any]] = {}
+    for key, val in impact_pairs:
+        key_text = re.sub(r"<[^>]+>", "", key).strip()
+        normalized = _IMPACT_LOWER.get(key_text.lower())
+        if normalized:
+            total = _sum_sensor_counts(val)
+            sensors: Dict[str, int] = {}
+            for m in re.finditer(r"(\d+)x\s+([\w._ -]+)", val):
+                sensors[m.group(2).strip()] = int(m.group(1))
+            impact_dist[normalized] = {"total": total, "sensors": sensors}
+    for level in _IMPACT_LEVELS:
+        impact_dist.setdefault(level, {"total": 0, "sensors": {}})
+    result["impact_distribution"] = impact_dist
+
+    has_data = any(
+        k != "impact_distribution" and v is not None
+        for k, v in result.items()
+    )
+    if not has_data:
+        return None
+
+    return result

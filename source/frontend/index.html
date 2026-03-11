@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PyPRTG_CLA</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <link rel="stylesheet" href="/static/css/styles.css?v=1.3" />
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"></script>
+</head>
+<body>
+  <div id="particle-bg"></div>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="logo">PyPRTG_CLA v1.2</div>
+      <div class="subtitle">Just another tool</div>
+    </header>
+    <main class="app-main">
+      <section class="upload-bar">
+        <div id="drop-zone" class="upload-btn">
+          <span>Upload Core.log</span>
+          <input id="file-input" type="file" accept=".log,.txt,.gz" />
+        </div>
+        <div id="status-data-zone" class="upload-btn upload-btn-secondary">
+          <span id="status-data-label">Upload Status Data</span>
+          <input id="status-data-input" type="file" accept=".htm,.html" />
+        </div>
+        <div class="upload-feedback">
+          <div id="progress" class="progress-bar"><div class="bar"></div></div>
+          <div id="status-text" class="status-text"></div>
+        </div>
+      </section>
+      <section class="dashboard" id="dashboard" hidden>
+        <div id="view-toggle-wrap" class="view-toggle-wrap"></div>
+        <div id="global-timeframe-wrap" class="global-timeframe-wrap" aria-label="Time window"></div>
+        <nav class="tabs">
+          <button data-tab="overview" class="active">Overview</button>
+          <button data-tab="findings">Findings</button>
+          <button data-tab="errors">Top Errors</button>
+          <button data-tab="sensors">Sensors &amp; Probes</button>
+          <button data-tab="timeline">Timeline</button>
+          <button data-tab="system">System Info</button>
+          <button data-tab="export">Export</button>
+        </nav>
+        <section class="tab-content active" id="tab-overview">
+          <div id="overview-summary" class="panel"></div>
+          <div id="overview-status-snapshot" class="panel"></div>
+          <div id="overview-health" class="panel"></div>
+          <div id="overview-metrics" class="panel"></div>
+          <div id="overview-charts" class="chart"></div>
+        </section>
+        <section class="tab-content" id="tab-findings">
+          <div id="findings-list" class="panel"></div>
+        </section>
+        <section class="tab-content" id="tab-errors">
+          <div id="errors-wrap" class="panel">
+            <div id="errors-toolbar" class="errors-toolbar"></div>
+            <div id="errors-list" class="errors-list"></div>
+          </div>
+        </section>
+        <section class="tab-content" id="tab-sensors">
+          <div id="chart-intervals" class="chart"></div>
+          <div id="chart-erp-sensor-types" class="chart"></div>
+          <div id="probe-impact-container"></div>
+          <div id="sensors-table" class="panel"></div>
+        </section>
+        <section class="tab-content" id="tab-timeline">
+          <div id="timeline-list" class="panel"></div>
+          <div id="chart-timeline" class="chart"></div>
+        </section>
+        <section class="tab-content" id="tab-system">
+          <div id="system-info" class="panel"></div>
+        </section>
+        <section class="tab-content" id="tab-export">
+          <button id="btn-download-json">Download JSON</button>
+          <button id="btn-download-html">Download HTML Report</button>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="/static/js/app.js?v=1.3"></script>
+</body>
+</html>
+

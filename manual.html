@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>PyPRTG_CLA v1.1 — User Manual</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        :root {
+            --bg:        #050816;
+            --bg-card:   rgba(15,23,42,0.92);
+            --border:    rgba(148,163,184,0.22);
+            --accent:    #38bdf8;
+            --accent2:   #818cf8;
+            --green:     #22c55e;
+            --yellow:    #eab308;
+            --red:       #ef4444;
+            --text:      #e2e8f0;
+            --muted:     #94a3b8;
+            --code-bg:   rgba(15,23,42,0.95);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 0;
+        }
+
+        /* ── HERO ── */
+        .hero {
+            background:
+                radial-gradient(ellipse 80% 60% at 50% -10%, rgba(56,189,248,0.18) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 40% at 80% 110%, rgba(129,140,248,0.14) 0%, transparent 65%),
+                var(--bg);
+            border-bottom: 1px solid var(--border);
+            padding: 4rem 2rem 3.5rem;
+            text-align: center;
+        }
+        .hero .badge {
+            display: inline-block;
+            padding: 0.25rem 0.9rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            border: 1px solid rgba(56,189,248,0.45);
+            color: var(--accent);
+            background: rgba(56,189,248,0.08);
+            margin-bottom: 1.2rem;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #fff;
+            text-shadow: 0 0 40px rgba(56,189,248,0.4);
+            margin-bottom: 0.5rem;
+        }
+        .hero h1 span { color: var(--accent); }
+        .hero .sub {
+            font-size: 1.1rem;
+            color: var(--muted);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            justify-content: center;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.04);
+            color: var(--muted);
+        }
+        .pill .dot {
+            width: 6px; height: 6px; border-radius: 50%;
+        }
+        .dot-green { background: var(--green); }
+        .dot-blue  { background: var(--accent); }
+        .dot-purple { background: var(--accent2); }
+
+        /* ── LAYOUT ── */
+        .wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 2rem 4rem;
+        }
+
+        /* ── TOC ── */
+        .toc {
+            margin: 2.5rem 0;
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background: var(--bg-card);
+            padding: 1.5rem 2rem;
+        }
+        .toc h2 {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--muted);
+            margin-bottom: 1rem;
+        }
+        .toc ol {
+            columns: 2;
+            column-gap: 2rem;
+            list-style: none;
+            counter-reset: toc-ctr;
+            padding: 0;
+        }
+        .toc li {
+            counter-increment: toc-ctr;
+            margin-bottom: 0.45rem;
+            break-inside: avoid;
+        }
+        .toc li::before {
+            content: counter(toc-ctr) ". ";
+            color: var(--accent);
+            font-size: 0.85rem;
+        }
+        .toc a {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.92rem;
+        }
+        .toc a:hover { color: var(--accent); }
+
+        /* ── SECTION ── */
+        .section {
+            margin-top: 2.8rem;
+        }
+        .section-label {
+            display: inline-block;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--accent);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 2px;
+            margin-bottom: 0.6rem;
+        }
+        h2.section-title {
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1.2rem;
+        }
+        h3.sub-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin: 1.8rem 0 0.7rem;
+        }
+        h4.sub-sub {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text);
+            margin: 1.2rem 0 0.4rem;
+        }
+        p { margin-bottom: 0.9rem; color: var(--text); }
+        p:last-child { margin-bottom: 0; }
+        ul, ol { padding-left: 1.5rem; margin-bottom: 0.9rem; }
+        li { margin-bottom: 0.4rem; }
+
+        /* ── CARD ── */
+        .card {
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            background:
+                radial-gradient(circle at top left, rgba(56,189,248,0.08), transparent 50%),
+                var(--bg-card);
+            padding: 1.5rem 2rem;
+            margin-bottom: 1.2rem;
+        }
+        .card.accent-left {
+            border-left: 3px solid var(--accent);
+        }
+        .card.accent-green {
+            border-left: 3px solid var(--green);
+        }
+        .card.accent-yellow {
+            border-left: 3px solid var(--yellow);
+        }
+        .card.accent-red {
+            border-left: 3px solid var(--red);
+        }
+
+        /* ── CALLOUT ── */
+        .callout {
+            border-radius: 0.6rem;
+            padding: 1rem 1.4rem;
+            margin: 1.2rem 0;
+            font-size: 0.93rem;
+        }
+        .callout-info  { background: rgba(56,189,248,0.08);  border-left: 3px solid var(--accent);  color: #bae6fd; }
+        .callout-tip   { background: rgba(34,197,94,0.08);   border-left: 3px solid var(--green);   color: #bbf7d0; }
+        .callout-warn  { background: rgba(234,179,8,0.1);    border-left: 3px solid var(--yellow);  color: #fef08a; }
+        .callout-crit  { background: rgba(239,68,68,0.1);    border-left: 3px solid var(--red);     color: #fca5a5; }
+        .callout strong { font-weight: 700; }
+
+        /* ── CODE ── */
+        code {
+            font-family: "JetBrains Mono", Consolas, "Cascadia Code", ui-monospace, monospace;
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.3rem;
+            font-size: 0.88em;
+            color: #7dd3fc;
+        }
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.6rem;
+            padding: 1.1rem 1.4rem;
+            overflow-x: auto;
+            font-size: 0.87rem;
+            font-family: "JetBrains Mono", Consolas, ui-monospace, monospace;
+            color: #7dd3fc;
+            margin: 0.9rem 0;
+        }
+
+        /* ── TABLE ── */
+        .table-wrap { overflow-x: auto; margin: 1rem 0; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.88rem;
+        }
+        thead tr { background: rgba(56,189,248,0.1); }
+        th {
+            padding: 0.7rem 1rem;
+            text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--accent);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.65rem 1rem;
+            border-bottom: 1px solid rgba(148,163,184,0.12);
+            vertical-align: top;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(56,189,248,0.04); }
+
+        /* ── STEP ── */
+        .steps { list-style: none; padding: 0; counter-reset: step-ctr; }
+        .steps li {
+            counter-increment: step-ctr;
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .steps li::before {
+            content: counter(step-ctr);
+            flex-shrink: 0;
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 50%;
+            background: rgba(37,99,235,0.8);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 0.05rem;
+        }
+
+        /* ── SCORE BADGES ── */
+        .score-healthy  { color: var(--green);  font-weight: 700; }
+        .score-warn     { color: var(--yellow); font-weight: 700; }
+        .score-critical { color: var(--red);    font-weight: 700; }
+
+        /* ── RULE SEVERITY CHIP ── */
+        .chip {
+            display: inline-block;
+            padding: 0.1rem 0.55rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .chip-red    { background: rgba(239,68,68,0.18);   color: #fca5a5; border: 1px solid rgba(239,68,68,0.45); }
+        .chip-yellow { background: rgba(234,179,8,0.15);   color: #fde68a; border: 1px solid rgba(234,179,8,0.4); }
+
+        /* ── DIVIDER ── */
+        hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 2.5rem 0;
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            text-align: center;
+            padding: 2.5rem 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.83rem;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 640px) {
+            .hero { padding: 2.5rem 1.25rem 2rem; }
+            .wrapper { padding: 0 1.25rem 3rem; }
+            .toc ol { columns: 1; }
+            .card { padding: 1.2rem 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════════════ -->
+<header class="hero">
+    <div class="badge">User Manual · v1.1</div>
+    <h1>PyPRTG_<span>CLA</span></h1>
+    <p class="sub">The definitive guide to the PRTG Core Log Analyzer —<br>every feature, every rule, zero guesswork.</p>
+    <div class="pill-row">
+        <div class="pill"><span class="dot dot-green"></span>100% deterministic — no AI, no hallucination</div>
+        <div class="pill"><span class="dot dot-blue"></span>11 hardcoded best-practice rules</div>
+        <div class="pill"><span class="dot dot-purple"></span>Runs 100% locally — no data leaves your machine</div>
+    </div>
+</header>
+
+<div class="wrapper">
+
+<!-- ════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+════════════════════════════════════════════════════════ -->
+<nav class="toc" id="top">
+    <h2>Table of Contents</h2>
+    <ol>
+        <li><a href="#about">What is PyPRTG_CLA?</a></li>
+        <li><a href="#requirements">System Requirements</a></li>
+        <li><a href="#install">Installation &amp; First Launch</a></li>
+        <li><a href="#upload">Uploading a Core.log File</a></li>
+        <li><a href="#overview-tab">Tab: Overview</a></li>
+        <li><a href="#findings-tab">Tab: Findings</a></li>
+        <li><a href="#top-errors-tab">Tab: Top Errors</a></li>
+        <li><a href="#sensors-tab">Tab: Sensors &amp; Probes</a></li>
+        <li><a href="#timeline-tab">Tab: Timeline</a></li>
+        <li><a href="#sysinfo-tab">Tab: System Info</a></li>
+        <li><a href="#timeframe">Timeframe Filter</a></li>
+        <li><a href="#export">Export</a></li>
+        <li><a href="#scoring">Health Score &amp; Rules Engine</a></li>
+        <li><a href="#reliability">Reliability &amp; Data Integrity</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#security">Privacy &amp; Security</a></li>
+    </ol>
+</nav>
+
+
+<!-- ════════════════════════════════════════════════════════
+     1. ABOUT
+════════════════════════════════════════════════════════ -->
+<section class="section" id="about">
+    <span class="section-label">Section 1</span>
+    <h2 class="section-title">What is PyPRTG_CLA?</h2>
+
+    <p>
+        <strong>PyPRTG_CLA</strong> (Python PRTG Core Log Analyzer) is a standalone, local web application
+        built specifically for PRTG Network Monitor. It takes a single <code>Core.log</code> file as input,
+        parses every relevant line with deterministic regex patterns, evaluates the extracted data against
+        a set of <strong>11 hardcoded best-practice rules</strong>, computes a 0–100 health score, and
+        presents the results as an interactive browser-based dashboard.
+    </p>
+
+    <div class="callout callout-info">
+        <strong>Zero AI. Zero guessing.</strong> Every finding, every score delta, every recommendation
+        is produced by explicit, auditable logic that was written by engineers who know PRTG inside out.
+        If the data is not in the log, it is not shown. Period.
+    </div>
+
+    <h3 class="sub-title">Who is it for?</h3>
+    <ul>
+        <li><strong>Paessler Support Engineers</strong> — instantly assess a customer instance from a single log file, without access to the live PRTG instance.</li>
+        <li><strong>NOC Operators</strong> — quickly understand the health of monitored PRTG servers.</li>
+        <li><strong>PRTG Administrators</strong> — proactively review their own instance against Paessler's official sizing guidelines.</li>
+    </ul>
+
+    <h3 class="sub-title">What does it analyze?</h3>
+    <p>Everything it reports comes <em>directly</em> from the log:</p>
+    <ul>
+        <li>Server name, PRTG version, license owner, OS, CPU, RAM, storage paths, timezone</li>
+        <li>Total sensors, probes, devices, groups, channels, users</li>
+        <li>Sensor impact distribution (five levels: Very Low → Very High)</li>
+        <li>Sensor refresh-rate (interval) distribution</li>
+        <li>Per-probe sensor counts, ERP (Estimated Requests Per second), and impact breakdown</li>
+        <li>All ERRR-level log errors, normalized and deduplicated into patterns</li>
+        <li>Restart history and startup milestones</li>
+        <li>Thread runtime statistics</li>
+        <li>CPU splitting configuration</li>
+    </ul>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     2. REQUIREMENTS
+════════════════════════════════════════════════════════ -->
+<section class="section" id="requirements">
+    <span class="section-label">Section 2</span>
+    <h2 class="section-title">System Requirements</h2>
+
+    <div class="card accent-left">
+        <ul style="margin:0">
+            <li><strong>Operating System:</strong> 64-bit Windows 10 or later</li>
+            <li><strong>Browser:</strong> Microsoft Edge, Google Chrome, or Mozilla Firefox (modern, evergreen release)</li>
+            <li><strong>Network:</strong> Localhost access — TCP port <code>8077</code> must not be blocked by a host-based firewall</li>
+            <li><strong>Disk:</strong> A small amount of temporary disk space for the result cache (written to the OS temp directory)</li>
+            <li><strong>RAM:</strong> No special requirement — parsing is streaming and memory-efficient even for files of several hundred MB</li>
+        </ul>
+    </div>
+
+    <div class="callout callout-tip">
+        <strong>No Python required.</strong> The EXE is fully self-contained. No runtime, no virtual environment,
+        no additional installer is needed on the target machine.
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     3. INSTALLATION & FIRST LAUNCH
+════════════════════════════════════════════════════════ -->
+<section class="section" id="install">
+    <span class="section-label">Section 3</span>
+    <h2 class="section-title">Installation &amp; First Launch</h2>
+
+    <p>There is no installation step. The entire application ships as a single file:</p>
+    <pre>PyPRTG_CLA.exe</pre>
+
+    <h3 class="sub-title">Starting the application</h3>
+    <ol class="steps">
+        <li>Locate <code>PyPRTG_CLA.exe</code> and double-click it.</li>
+        <li>
+            If <strong>Windows SmartScreen</strong> shows an "unrecognized app" warning:
+            <ul>
+                <li>Click <strong>More info</strong>.</li>
+                <li>Then click <strong>Run anyway</strong>.</li>
+            </ul>
+            The binary is unsigned. No data is sent anywhere — this warning is expected for unsigned executables.
+        </li>
+        <li>
+            A console window opens. The <strong>first launch</strong> may take <strong>5–15 seconds</strong>
+            while PyInstaller unpacks the embedded Python runtime into a temporary folder. Subsequent launches
+            on the same machine are faster.
+        </li>
+        <li>
+            Wait until the console shows:<br />
+            <code>Uvicorn running on http://127.0.0.1:8077</code>
+        </li>
+        <li>
+            Open your browser and navigate to:<br />
+            <code>http://127.0.0.1:8077</code>
+        </li>
+    </ol>
+
+    <h3 class="sub-title">Stopping the application</h3>
+    <ul>
+        <li>Close the console window, or</li>
+        <li>Click into the console and press <code>Ctrl + C</code> to stop the server gracefully.</li>
+    </ul>
+
+    <div class="callout callout-tip">
+        <strong>Custom port.</strong> If port 8077 is taken, set the environment variable
+        <code>PRTG_ANALYZER_PORT</code> to a different number before launching.
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     4. UPLOADING A LOG FILE
+════════════════════════════════════════════════════════ -->
+<section class="section" id="upload">
+    <span class="section-label">Section 4</span>
+    <h2 class="section-title">Uploading a Core.log File</h2>
+
+    <h3 class="sub-title">Supported file formats</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Format</th><th>Extension</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Plain text log</td><td><code>.log</code></td><td>Standard PRTG Core.log</td></tr>
+                <tr><td>Gzip-compressed log</td><td><code>.gz</code></td><td>Decompressed transparently on upload</td></tr>
+                <tr><td>Plain text (renamed)</td><td><code>.txt</code></td><td>Also accepted</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p>File encoding is auto-detected: <code>UTF-8</code>, <code>UTF-16</code>, and <code>latin-1</code> are all handled.</p>
+
+    <h3 class="sub-title">How to upload</h3>
+    <ol class="steps">
+        <li><strong>Drag and drop</strong> your <code>Core.log</code> file directly onto the upload area on the homepage, or click the area to open a file browser.</li>
+        <li>A <strong>live progress bar</strong> shows parsing status in real time via a server-sent event stream. Large files (hundreds of MB) are processed with a streaming parser — memory usage stays low.</li>
+        <li>When analysis completes, the dashboard appears automatically with all tabs and charts populated.</li>
+    </ol>
+
+    <h3 class="sub-title">Instant re-analysis from cache</h3>
+    <p>
+        Every uploaded file is identified by its <strong>SHA-256 hash</strong>. If you upload the same file
+        again (even after closing and reopening the app), the result is served from cache instantly — no
+        re-parsing is needed. The cache is keyed to the analyzer version, so upgrading to a new version
+        of PyPRTG_CLA automatically invalidates old cached results and triggers a fresh analysis.
+    </p>
+
+    <div class="callout callout-info">
+        <strong>Where does PRTG store Core.log?</strong> On a standard PRTG installation, the file is located at:
+        <code>C:\ProgramData\Paessler\PRTG Network Monitor\Logs\Core\Core.log</code>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     5. TAB: OVERVIEW
+════════════════════════════════════════════════════════ -->
+<section class="section" id="overview-tab">
+    <span class="section-label">Section 5</span>
+    <h2 class="section-title">Tab: Overview</h2>
+
+    <p>The Overview tab is the landing view after a successful analysis. It provides a full at-a-glance picture of the PRTG instance.</p>
+
+    <h3 class="sub-title">Global Snapshot panel</h3>
+    <p>Displays the most critical identifiers extracted directly from the log:</p>
+    <ul>
+        <li><strong>Server name</strong> — the hostname of the PRTG server</li>
+        <li><strong>PRTG version</strong> — e.g. <code>26.1.1</code></li>
+        <li><strong>License owner</strong> — the licensed organization name</li>
+        <li><strong>System ID</strong> — the internal PRTG SystemID</li>
+        <li><strong>Total sensors / probes</strong></li>
+        <li><strong>CPU splitting status</strong> — whether CPU splitting is active</li>
+        <li><strong>Health score</strong> — the computed 0–100 score with color-coded verdict</li>
+    </ul>
+
+    <h3 class="sub-title">Instance Health panel</h3>
+    <ul>
+        <li><strong>Health verdict</strong> — one of: <span class="score-healthy">Healthy</span>, <span class="score-warn">Optimization Needed</span>, or <span class="score-critical">Critical</span></li>
+        <li><strong>Log span days</strong> — calendar range covered by the log file</li>
+        <li><strong>Restart count</strong> — total number of PRTG Core restarts detected</li>
+        <li><strong>Error and warning pills</strong> — quick count of ERRR and warning lines</li>
+    </ul>
+
+    <h3 class="sub-title">Metrics grid (4 cards)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Card</th><th>Values shown</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Load &amp; ERP</strong></td>
+                    <td>Calculated requests per minute, total ERP from log, busiest probe name</td>
+                </tr>
+                <tr>
+                    <td><strong>Stability</strong></td>
+                    <td>Restart count, total warning count</td>
+                </tr>
+                <tr>
+                    <td><strong>License &amp; OS</strong></td>
+                    <td>License owner, OS version string</td>
+                </tr>
+                <tr>
+                    <td><strong>Errors</strong></td>
+                    <td>Total errors, errors in the last 24 hours, errors since the last restart</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="sub-title">Overview charts</h3>
+    <p>Six interactive ECharts visualizations are rendered in the Overview tab:</p>
+
+    <h4 class="sub-sub">Stability Radar</h4>
+    <p>
+        A five-axis radar chart showing the instance's stability profile across:
+        <strong>Errors</strong>, <strong>Restarts</strong>, <strong>Startup</strong>,
+        <strong>Threads</strong>, and <strong>Load</strong>. Each axis is normalized
+        so a perfect score produces a full pentagon, and degraded areas shrink the shape inward.
+    </p>
+
+    <h4 class="sub-sub">ERP Load Orbit (Gauge)</h4>
+    <p>
+        A gauge showing the calculated scanning load as a percentage of "safe capacity"
+        (10,000 requests per minute per probe). Values above 100% indicate a potentially
+        overloaded scanning schedule.
+    </p>
+
+    <h4 class="sub-sub">Memory Utilization (Gauge)</h4>
+    <p>
+        A gauge showing RAM used as a percentage of total installed RAM, calculated from
+        the values extracted directly from the log.
+    </p>
+
+    <h4 class="sub-sub">Sensor Impact Levels (Donut chart)</h4>
+    <p>
+        The global distribution of sensors across five impact levels:
+        <strong>Very Low</strong>, <strong>Low</strong>, <strong>Medium</strong>,
+        <strong>High</strong>, and <strong>Very High</strong>.
+        A large share of Medium/High/Very High sensors is a known contributor to high CPU load in PRTG.
+    </p>
+
+    <h4 class="sub-sub">Error Activity Over Time (Line chart)</h4>
+    <p>
+        Plots daily error volume across the log's time span, allowing you to spot
+        sudden error spikes or periods of unusual instability.
+    </p>
+
+    <h4 class="sub-sub">ERP Hot Probes (Horizontal bar chart)</h4>
+    <p>
+        The <strong>top 8 probes</strong> ranked by their ERP (Estimated Requests Per second)
+        value as reported in the log. Identifies which probes are driving the most scanning load.
+    </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     6. TAB: FINDINGS
+════════════════════════════════════════════════════════ -->
+<section class="section" id="findings-tab">
+    <span class="section-label">Section 6</span>
+    <h2 class="section-title">Tab: Findings</h2>
+
+    <p>
+        The Findings tab lists every rule that triggered during the analysis of this log. Only rules that
+        actually fire are shown — if your instance has no issues in a particular area, that rule is simply
+        absent from the list.
+    </p>
+
+    <p>Each finding card shows:</p>
+    <ul>
+        <li><strong>Title</strong> — a plain-language description of the issue, color-coded by severity</li>
+        <li><strong>Rule ID</strong> — the internal rule reference (e.g. <code>RULE_2_RAM</code>)</li>
+        <li><strong>Score delta</strong> — how many points this finding deducted from the health score</li>
+        <li><strong>Evidence</strong> — the actual values from the log that triggered this rule (e.g. "Current RAM: 12 GB, Required: 16 GB")</li>
+        <li><strong>Recommendation</strong> — a concrete action, with tone scaled to severity:
+            <ul>
+                <li>Slightly over threshold → <em>"Consider…"</em></li>
+                <li>Moderately over threshold → <em>"We recommend…"</em></li>
+                <li>Severely over threshold → <em>"Immediate action required…"</em></li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout callout-info">
+        All thresholds and recommendations are aligned with <strong>Paessler's official PRTG setup guide</strong>.
+        There is no machine learning, no heuristic guessing — every recommendation maps to a specific published guideline.
+    </div>
+
+    <p>See <a href="#scoring">Section 13 — Health Score &amp; Rules Engine</a> for the complete list of all 11 rules and their exact thresholds.</p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     7. TAB: TOP ERRORS
+════════════════════════════════════════════════════════ -->
+<section class="section" id="top-errors-tab">
+    <span class="section-label">Section 7</span>
+    <h2 class="section-title">Tab: Top Errors</h2>
+
+    <p>
+        The Top Errors tab shows the most frequently occurring error patterns extracted from all
+        <code>ERRR</code>-level lines in the log.
+    </p>
+
+    <h3 class="sub-title">How errors are processed</h3>
+    <p>
+        Raw error lines are <strong>normalized</strong> before counting. The normalization replaces
+        variable parts with placeholders so that many instances of the same underlying error are
+        correctly grouped into a single pattern:
+    </p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Variable part</th><th>Replaced with</th></tr></thead>
+            <tbody>
+                <tr><td>GUIDs (e.g. <code>550e8400-e29b-...</code>)</td><td><code>{&lt;guid&gt;}</code></td></tr>
+                <tr><td>Thread IDs</td><td><code>TId &lt;id&gt;</code></td></tr>
+                <tr><td>Hexadecimal values</td><td><code>0x&lt;hex&gt;</code></td></tr>
+                <tr><td>Numbers with 2 or more digits</td><td><code>&lt;n&gt;</code></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <p>
+        This normalization is purely deterministic — the same raw log always produces the same pattern set.
+        The analyzer stores up to <strong>500 unique error patterns</strong> and surfaces the
+        <strong>top 10</strong> in this tab.
+    </p>
+
+    <h3 class="sub-title">License errors are excluded</h3>
+    <div class="callout callout-tip">
+        License activation and key-validation errors are <strong>explicitly excluded</strong> from all
+        error counts and pattern lists. These errors are common and expected in many PRTG log files and
+        would otherwise distort the error picture. Only genuine operational errors are counted.
+    </div>
+
+    <h3 class="sub-title">What each error card shows</h3>
+    <ul>
+        <li><strong>Rank</strong> — position by frequency (#1 = most frequent)</li>
+        <li><strong>Occurrence count</strong> — exact number of times this pattern appeared</li>
+        <li><strong>First seen / Last seen</strong> — timestamps bounding this error's presence in the log</li>
+        <li><strong>Normalized pattern</strong> — the deduplicated error text</li>
+        <li><strong>Up to 5 sample lines</strong> — actual raw log lines to aid diagnosis</li>
+    </ul>
+
+    <h3 class="sub-title">Toolbar controls</h3>
+    <ul>
+        <li><strong>Show Top 5 / Show Top 10</strong> — toggle between seeing the 5 or 10 most frequent patterns</li>
+        <li><strong>Copy</strong> — copies the full error list to the clipboard for pasting into a ticket or report</li>
+    </ul>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     8. TAB: SENSORS & PROBES
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sensors-tab">
+    <span class="section-label">Section 8</span>
+    <h2 class="section-title">Tab: Sensors &amp; Probes</h2>
+
+    <p>This tab provides a deep dive into how scanning load and sensor risk are distributed across the instance.</p>
+
+    <h3 class="sub-title">Sensor Refresh Rate Distribution (bar chart)</h3>
+    <p>
+        A vertical bar chart showing how many sensors are set to each scanning interval
+        (e.g. 30 seconds, 1 minute, 5 minutes, 1 hour, …). Short intervals on many sensors
+        are the primary driver of high scanning load (ERP). The chart labels intervals in
+        human-readable form.
+    </p>
+
+    <h3 class="sub-title">ERP Relative Load by Sensor Type (horizontal bar chart)</h3>
+    <p>
+        Shows the <strong>top 20 sensor types</strong> ranked by their weighted scanning contribution
+        (sensor count × 60 ÷ interval). This makes it easy to spot which sensor technologies are
+        disproportionately contributing to load.
+    </p>
+
+    <h3 class="sub-title">Per-probe impact distribution charts</h3>
+    <p>
+        For each of the <strong>top 10 probes</strong> (by sensor count), a bar chart shows the
+        number of sensors at each of the five impact levels: Very Low, Low, Medium, High, and
+        Very High. If more than 10 probes exist, a note indicates how many additional probes are
+        present but not charted individually.
+    </p>
+
+    <div class="callout callout-info">
+        <strong>Why impact levels matter:</strong> PRTG's engine processes sensors differently
+        depending on their impact level. A high share of Medium/High/Very High sensors increases
+        CPU and memory usage disproportionately.
+    </div>
+
+    <h3 class="sub-title">Probes &amp; Sensor Distribution table</h3>
+    <p>A summary table listing every probe with its:</p>
+    <ul>
+        <li><strong>Name</strong> — probe display name from the log</li>
+        <li><strong>ID</strong> — internal PRTG probe ID</li>
+        <li><strong>Sensor count</strong> — number of sensors assigned to this probe</li>
+        <li><strong>ERP</strong> — the probe's Estimated Requests Per second, as reported by PRTG in the log</li>
+    </ul>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     9. TAB: TIMELINE
+════════════════════════════════════════════════════════ -->
+<section class="section" id="timeline-tab">
+    <span class="section-label">Section 9</span>
+    <h2 class="section-title">Tab: Timeline</h2>
+
+    <p>
+        The Timeline tab maps the history of the PRTG Core process over the log's time span,
+        helping you understand restart patterns and correlate instability with error spikes.
+    </p>
+
+    <h3 class="sub-title">Timeline Events list</h3>
+    <p>
+        Each event is shown with its timestamp, a type label in brackets, and a descriptive text:
+    </p>
+    <ul>
+        <li><strong>[restart]</strong> — a PRTG Core restart detected via a <code>Logger initialized</code> line</li>
+        <li><strong>[milestone]</strong> — a significant startup milestone line logged by PRTG</li>
+    </ul>
+
+    <h3 class="sub-title">Timeline scatter chart</h3>
+    <p>
+        Events are plotted on a horizontal time axis. Restart events appear on one row and
+        milestones on another, making it immediately clear whether restarts cluster at a
+        particular period or are evenly distributed.
+    </p>
+
+    <div class="callout callout-warn">
+        <strong>Interpreting restart density:</strong> More than 10 restarts across the log span
+        triggers the high restart frequency finding. More than 5 restarts triggers the elevated
+        frequency warning. See <a href="#scoring">Section 13</a> for exact thresholds.
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     10. TAB: SYSTEM INFO
+════════════════════════════════════════════════════════ -->
+<section class="section" id="sysinfo-tab">
+    <span class="section-label">Section 10</span>
+    <h2 class="section-title">Tab: System Info</h2>
+
+    <p>
+        The System Info tab presents a structured key-value view of everything the parser extracted
+        about the host system. All values come <em>directly</em> from the log — nothing is inferred or estimated.
+    </p>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Field</th><th>Description</th></tr></thead>
+            <tbody>
+                <tr><td><strong>OS</strong></td><td>Full Windows Server version string</td></tr>
+                <tr><td><strong>CPU count</strong></td><td>Number of logical CPU cores visible to PRTG</td></tr>
+                <tr><td><strong>CPU model</strong></td><td>Processor model name</td></tr>
+                <tr><td><strong>CPU speed</strong></td><td>Clock speed in GHz</td></tr>
+                <tr><td><strong>CPU splitting</strong></td><td>Whether CPU splitting is active, CPUs assigned, and split configuration</td></tr>
+                <tr><td><strong>RAM (free / total)</strong></td><td>Physical memory values in MB, as read from the log</td></tr>
+                <tr><td><strong>Pagefile (free / total)</strong></td><td>Page file sizes in MB</td></tr>
+                <tr><td><strong>License owner</strong></td><td>Licensed organization name</td></tr>
+                <tr><td><strong>System ID</strong></td><td>PRTG internal SystemID</td></tr>
+                <tr><td><strong>Edition &amp; sensors</strong></td><td>License edition type and maximum sensors allowed</td></tr>
+                <tr><td><strong>License days left</strong></td><td>Remaining commercial license days</td></tr>
+                <tr><td><strong>Timezone</strong></td><td>Server timezone as reported in the log</td></tr>
+                <tr><td><strong>Storage device</strong></td><td>The storage device identifier</td></tr>
+                <tr><td><strong>Data path</strong></td><td>PRTG data storage path</td></tr>
+                <tr><td><strong>System path</strong></td><td>PRTG application installation path</td></tr>
+                <tr><td><strong>Installed / Created / License date</strong></td><td>Key installation timestamps</td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     11. TIMEFRAME FILTER
+════════════════════════════════════════════════════════ -->
+<section class="section" id="timeframe">
+    <span class="section-label">Section 11</span>
+    <h2 class="section-title">Timeframe Filter</h2>
+
+    <p>
+        The <strong>Global Time Window Slider</strong> appears above the tabs once a log has been analyzed.
+        It lets you narrow the entire analysis — score, findings, errors, and charts — to a specific
+        slice of the log's history.
+    </p>
+
+    <h3 class="sub-title">How it works</h3>
+    <p>
+        PRTG logs a <code>Logger initialized</code> line every time the Core process starts. The analyzer
+        uses these lines to divide the log into <strong>restart segments</strong>. The slider lets you choose
+        how many of the most recent segments to include, from the very last one up to all segments.
+    </p>
+    <ul>
+        <li>Drag the slider to <strong>1</strong> to analyze only the current (most recent) restart cycle.</li>
+        <li>Drag it to the maximum to analyze the full log (the default).</li>
+        <li>Restart timestamp markers are shown as dots on the slider track so you can see exactly when each segment started.</li>
+    </ul>
+
+    <h3 class="sub-title">What changes with the timeframe</h3>
+    <ul>
+        <li>Health score is recomputed using only the data from the selected segments</li>
+        <li>All findings are re-evaluated</li>
+        <li>Error counts (total, last 24h, since restart) are filtered to the selected window</li>
+        <li>Top error patterns reflect only the selected time window</li>
+        <li>System info fields show the configuration as it was at the start of the selected segment</li>
+    </ul>
+
+    <div class="callout callout-tip">
+        <strong>Pro tip:</strong> Set the timeframe to the last 1 restart to assess the current state of the
+        instance in isolation, without historical noise from months of old data.
+    </div>
+
+    <h3 class="sub-title">Performance</h3>
+    <p>
+        Each timeframe result is <strong>cached in memory in the browser</strong>. Switching between
+        timeframe values is instant once they have been computed — no repeated server round-trips.
+    </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     12. EXPORT
+════════════════════════════════════════════════════════ -->
+<section class="section" id="export">
+    <span class="section-label">Section 12</span>
+    <h2 class="section-title">Export</h2>
+
+    <p>The Export tab offers two download options, both of which respect the currently active timeframe filter.</p>
+
+    <h3 class="sub-title">JSON Export</h3>
+    <p>
+        Downloads the complete analysis result as a structured JSON file. The JSON includes:
+    </p>
+    <ul>
+        <li>All parsed fields from the log (<code>core</code> object — server info, sensors, probes, errors, threads, etc.)</li>
+        <li>The computed <code>score</code> (0–100)</li>
+        <li>The full <code>findings</code> list with rule IDs, evidence, and recommendations</li>
+        <li>The <code>refresh_rate_distribution</code> array</li>
+        <li>The <code>calculated_requests_per_min</code> value</li>
+        <li>The <code>timeline</code> events</li>
+        <li>A <code>metadata</code> block with analyzer version and file hash</li>
+    </ul>
+    <p>The JSON is suitable for custom scripts, integrations with other tools, or archival.</p>
+
+    <h3 class="sub-title">HTML Report</h3>
+    <p>
+        Downloads a <strong>fully self-contained</strong> standalone HTML file — no internet connection
+        is needed to open it. The report contains:
+    </p>
+    <ul>
+        <li>A header identifying the report as <em>PyPRTG_CLA Enterprise Report — [Server Name]</em></li>
+        <li>Global Snapshot card</li>
+        <li>Key Signals card</li>
+        <li>Global Impact Distribution donut chart (ECharts, embedded)</li>
+        <li>Refresh Rate Distribution bar chart (ECharts, embedded)</li>
+        <li>Full Findings &amp; Recommendations list</li>
+        <li>Top Errors list</li>
+    </ul>
+
+    <div class="callout callout-tip">
+        <strong>License key protection.</strong> The HTML report automatically masks the PRTG license key:
+        only the first 6 and last 4 characters are shown (e.g. <code>001001…N47D</code>).
+        The full key is never written into the exported file, making reports safe to share with
+        customers or attach to support tickets.
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     13. HEALTH SCORE & RULES ENGINE
+════════════════════════════════════════════════════════ -->
+<section class="section" id="scoring">
+    <span class="section-label">Section 13</span>
+    <h2 class="section-title">Health Score &amp; Rules Engine</h2>
+
+    <p>
+        The health score starts at <strong>100</strong> and has points deducted by each rule that fires.
+        The final score is clamped to the range <strong>0–100</strong>. The score translates to a verdict:
+    </p>
+
+    <div class="card" style="display:flex; gap:2rem; flex-wrap:wrap; margin-bottom:1.5rem">
+        <div style="flex:1; min-width:160px; text-align:center">
+            <div style="font-size:2rem; font-weight:800; color:var(--green)">≥ 80</div>
+            <div class="score-healthy">Healthy</div>
+        </div>
+        <div style="flex:1; min-width:160px; text-align:center">
+            <div style="font-size:2rem; font-weight:800; color:var(--yellow)">60 – 79</div>
+            <div class="score-warn">Optimization Needed</div>
+        </div>
+        <div style="flex:1; min-width:160px; text-align:center">
+            <div style="font-size:2rem; font-weight:800; color:var(--red)">&lt; 60</div>
+            <div class="score-critical">Critical</div>
+        </div>
+    </div>
+
+    <h3 class="sub-title">The 11 Hardcoded Rules</h3>
+    <p>
+        All rules are static, explicit code. They were written based on Paessler's published PRTG
+        sizing guidelines and support knowledge base. There are no configurable thresholds, no weights
+        to tune, and no machine learning involved. What you see in the tool is exactly what the code computes.
+    </p>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Rule ID</th>
+                    <th>Title</th>
+                    <th>Trigger condition</th>
+                    <th>Severity</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>RULE_1_CPU</code></td>
+                    <td>CPU cores below recommended</td>
+                    <td>CPU cores &lt; 95% of required tier</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−10</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_2_RAM</code></td>
+                    <td>RAM below recommended tier</td>
+                    <td>RAM &lt; 90% of required tier</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−10</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_4_OS</code></td>
+                    <td>Deprecated Windows Server OS</td>
+                    <td>OS year is 2008 or 2012</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−10</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_4_OS</code></td>
+                    <td>Aging Windows Server OS</td>
+                    <td>OS year is 2016</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−5</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_7_ERRORS</code></td>
+                    <td>Errors detected in Core.log</td>
+                    <td>&gt; 0 operational errors; escalates if &gt; 50 distinct patterns</td>
+                    <td><span class="chip chip-yellow">Warning</span> / <span class="chip chip-red">Critical</span></td>
+                    <td>−5 / −8</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_11_ERP</code></td>
+                    <td>High scanning load</td>
+                    <td>Calculated req/min &gt; 15,000</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−10</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_11_ERP</code></td>
+                    <td>Elevated scanning load</td>
+                    <td>Calculated req/min &gt; 10,000</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−6</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_13_DRIVES</code></td>
+                    <td>Data and System paths on same drive</td>
+                    <td>Data drive letter == System drive letter</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−5</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_14_RESTARTS</code></td>
+                    <td>High restart frequency</td>
+                    <td>Total restarts &gt; 10</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−5</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_14_RESTARTS</code></td>
+                    <td>Elevated restart frequency</td>
+                    <td>Total restarts &gt; 5</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−3</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_15_THREADS</code></td>
+                    <td>Very long-running threads</td>
+                    <td>Max thread runtime &gt; 300 s</td>
+                    <td><span class="chip chip-red">Critical</span></td>
+                    <td>−5</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_15_THREADS</code></td>
+                    <td>Long-running threads</td>
+                    <td>Max thread runtime &gt; 120 s</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−3</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_16_IMPACT</code></td>
+                    <td>High share of medium/high impact sensors</td>
+                    <td>(Medium + High + Very High) / total &gt; 30%</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−4</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_17_CHANNELS</code></td>
+                    <td>Many sensors exceed 50 channels</td>
+                    <td>Sensors with &gt;50 channels &gt; 10</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−3</td>
+                </tr>
+                <tr>
+                    <td><code>RULE_18_CPU_SPLITTING</code></td>
+                    <td>CPU splitting active with &gt;8 CPUs</td>
+                    <td>CPU splitting enabled AND total CPUs &gt; 8</td>
+                    <td><span class="chip chip-yellow">Warning</span></td>
+                    <td>−4</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h3 class="sub-title">CPU sizing tiers (hardcoded)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Sensor count</th><th>Minimum CPU cores required</th></tr></thead>
+            <tbody>
+                <tr><td>&lt; 2,500</td><td>4 cores</td></tr>
+                <tr><td>2,500 – 4,999</td><td>8 cores</td></tr>
+                <tr><td>5,000 – 9,999</td><td>12 cores</td></tr>
+                <tr><td>≥ 10,000</td><td>16 cores</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        The rule fires when the actual core count is below <strong>95%</strong> of the required tier
+        (a 5% tolerance band is applied to avoid penalizing borderline cases).
+    </p>
+
+    <h3 class="sub-title">RAM sizing tiers (hardcoded)</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Sensor count</th><th>Minimum RAM required</th></tr></thead>
+            <tbody>
+                <tr><td>&lt; 2,500</td><td>8 GB</td></tr>
+                <tr><td>2,500 – 4,999</td><td>16 GB</td></tr>
+                <tr><td>5,000 – 9,999</td><td>32 GB</td></tr>
+                <tr><td>≥ 10,000</td><td>64 GB</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>
+        The rule fires when actual RAM is below <strong>90%</strong> of the required tier.
+    </p>
+
+    <h3 class="sub-title">Scanning load calculation</h3>
+    <p>
+        The calculated requests per minute is derived directly from the sensor interval distribution
+        parsed from the log, using this formula applied to each interval bucket:
+    </p>
+    <pre>requests_per_min += (sensor_count × 60) ÷ interval_seconds</pre>
+    <p>
+        This is independent of the ERP value in the log, which is an instantaneous measurement.
+        The calculated value reflects the theoretical steady-state load based on the configured intervals.
+    </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     14. RELIABILITY & DATA INTEGRITY
+════════════════════════════════════════════════════════ -->
+<section class="section" id="reliability">
+    <span class="section-label">Section 14</span>
+    <h2 class="section-title">Reliability &amp; Data Integrity</h2>
+
+    <p>
+        PyPRTG_CLA is built with a single overriding principle: <strong>every value it displays
+        must be traceable back to a specific line in the uploaded log file</strong>. This section
+        explains the measures in place to guarantee that.
+    </p>
+
+    <h3 class="sub-title">1. Zero AI — fully deterministic</h3>
+    <p>
+        The analyzer contains <strong>no language models, no machine learning, and no probabilistic
+        inference</strong> of any kind. Every parsed value is extracted by an explicit regular expression
+        pattern. Every score deduction is triggered by an exact numerical comparison. The same log
+        file will always produce exactly the same result, on any machine, at any time.
+    </p>
+
+    <h3 class="sub-title">2. If it's not in the log, it's not shown</h3>
+    <p>
+        Fields that cannot be parsed from the log are left empty or omitted from the output entirely.
+        The analyzer never fills in defaults, never estimates, and never guesses values that are absent
+        from the source data.
+    </p>
+
+    <h3 class="sub-title">3. License error exclusion prevents false positives</h3>
+    <p>
+        License activation and key-validation errors are explicitly filtered out before counting
+        ERRR lines. These errors are ubiquitous in many PRTG Core.log files and are not indicators
+        of operational problems. Including them would inflate the error count and potentially trigger
+        the error-severity rule unfairly.
+    </p>
+
+    <h3 class="sub-title">4. Deterministic error normalization</h3>
+    <p>
+        Error deduplication is performed by replacing variable parts (GUIDs, thread IDs, hex values,
+        long numbers) with fixed placeholder tokens via regex substitution. This grouping logic is
+        applied identically to every error line — the resulting pattern set is reproducible and auditable.
+    </p>
+
+    <h3 class="sub-title">5. Version-keyed cache invalidation</h3>
+    <p>
+        Analysis results are cached to disk keyed on two factors: the SHA-256 hash of the uploaded file
+        <em>and</em> the analyzer version string (<code>1.1</code>). Upgrading to a new version of
+        PyPRTG_CLA automatically invalidates all existing cached results and forces a fresh analysis —
+        ensuring that improved parsing logic is always applied.
+    </p>
+
+    <h3 class="sub-title">6. Comprehensive automated test suite</h3>
+    <p>
+        The application ships with <strong>17 automated test functions</strong> covering:
+    </p>
+    <ul>
+        <li>Every data model contract and field type</li>
+        <li>Segment assignment and boundary detection</li>
+        <li>Error aggregation and pattern deduplication</li>
+        <li>Timeframe filtering across multiple segment configurations</li>
+        <li>All API endpoints (upload, progress, result, export)</li>
+        <li>Cache behavior and version-keyed invalidation</li>
+        <li><strong>Performance budgets:</strong> 5,000 errors processed in &lt; 8 seconds; 200 restarts handled in &lt; 5 seconds</li>
+        <li>Encoding handling (UTF-8, UTF-16, latin-1)</li>
+        <li>Score clamping (result always in 0–100)</li>
+    </ul>
+    <p>
+        These tests run against real parsing and rules logic using known input/output pairs with hardcoded
+        expected values. If any test fails, the analyzer will not build.
+    </p>
+
+    <h3 class="sub-title">7. Local-only processing</h3>
+    <p>
+        The application binds exclusively to <code>127.0.0.1</code>. No uploaded file, no parsed result,
+        and no exported report is ever transmitted to an external server. The machine running PyPRTG_CLA
+        can be completely disconnected from the internet while still providing full functionality
+        (charts load from a bundled vendor file in offline / export contexts).
+    </p>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     15. TROUBLESHOOTING
+════════════════════════════════════════════════════════ -->
+<section class="section" id="troubleshooting">
+    <span class="section-label">Section 15</span>
+    <h2 class="section-title">Troubleshooting</h2>
+
+    <div class="card accent-yellow">
+        <h4 class="sub-sub" style="margin-top:0">Browser cannot reach <code>http://127.0.0.1:8077</code></h4>
+        <p style="margin-bottom:0">
+            Confirm the console window from <code>PyPRTG_CLA.exe</code> is still open and shows the
+            <code>Uvicorn running on http://127.0.0.1:8077</code> line. If it closed unexpectedly,
+            relaunch the EXE. If it never appeared, check that the first-launch unpack completed
+            (it can take up to 15 seconds).
+        </p>
+    </div>
+
+    <div class="card accent-yellow">
+        <h4 class="sub-sub" style="margin-top:0">Port 8077 is already in use</h4>
+        <p style="margin-bottom:0">
+            Another instance of PyPRTG_CLA (or another application) is already using port 8077.
+            Close all <code>PyPRTG_CLA.exe</code> console windows. If the conflict persists,
+            set the environment variable <code>PRTG_ANALYZER_PORT</code> to a free port number
+            before launching, e.g. <code>set PRTG_ANALYZER_PORT=9088</code> in a command prompt,
+            then launch the EXE from that same prompt.
+        </p>
+    </div>
+
+    <div class="card accent-yellow">
+        <h4 class="sub-sub" style="margin-top:0">Slow first launch (5–15 seconds)</h4>
+        <p style="margin-bottom:0">
+            This is expected behavior. PyInstaller packs the entire Python runtime inside the EXE.
+            On first run it extracts this runtime to a temporary folder. Subsequent launches from
+            the same machine are significantly faster.
+        </p>
+    </div>
+
+    <div class="card accent-yellow">
+        <h4 class="sub-sub" style="margin-top:0">Windows Firewall prompt</h4>
+        <p style="margin-bottom:0">
+            You may safely allow local access when prompted. The app only binds to
+            <code>127.0.0.1</code> and is never accessible from other machines on the network.
+            Blocking the firewall prompt will prevent the browser from reaching the app.
+        </p>
+    </div>
+
+    <div class="card accent-red">
+        <h4 class="sub-sub" style="margin-top:0">Windows SmartScreen blocks the EXE</h4>
+        <p style="margin-bottom:0">
+            Click <strong>More info</strong>, then <strong>Run anyway</strong>. The binary is
+            unsigned — code-signing certificates are expensive and this is an internal tool.
+            The source code is included in the <code>source/</code> folder if you wish to inspect
+            or rebuild it. No data is sent to any external server.
+        </p>
+    </div>
+
+    <div class="card accent-yellow">
+        <h4 class="sub-sub" style="margin-top:0">Upload fails or analysis produces no results</h4>
+        <ul style="margin-bottom:0">
+            <li>Ensure the file is a valid PRTG <code>Core.log</code> (not <code>Probe.log</code>, <code>WebServer.log</code>, etc.).</li>
+            <li>Accepted extensions: <code>.log</code>, <code>.gz</code>, <code>.txt</code>.</li>
+            <li>Very short log files (e.g. newly started PRTG instances) may yield sparse results — this is normal.</li>
+            <li>Check the console window for any error messages from the server.</li>
+        </ul>
+    </div>
+</section>
+
+
+<!-- ════════════════════════════════════════════════════════
+     16. PRIVACY & SECURITY
+════════════════════════════════════════════════════════ -->
+<section class="section" id="security">
+    <span class="section-label">Section 16</span>
+    <h2 class="section-title">Privacy &amp; Security</h2>
+
+    <ul>
+        <li>
+            <strong>Strictly local:</strong> The server binds to <code>127.0.0.1</code> only.
+            No traffic from outside your machine can reach it. No data is transmitted externally.
+        </li>
+        <li>
+            <strong>No telemetry:</strong> PyPRTG_CLA makes no outbound network connections of any kind
+            during normal operation.
+        </li>
+        <li>
+            <strong>License key masking:</strong> When you export an HTML report, the PRTG license key
+            is automatically masked to show only the first 6 and last 4 characters
+            (e.g. <code>001001…N47D</code>). The raw key is never written to any exported file.
+        </li>
+        <li>
+            <strong>Cache location:</strong> Analysis results are cached in the OS temporary directory
+            under <code>prtg_analyzer_cache/</code>. Files in this folder are keyed by the SHA-256 hash
+            of the uploaded log and contain the parsed analysis data (not the raw log content). You can
+            delete this folder at any time without affecting the application.
+        </li>
+        <li>
+            <strong>Memory resident for 1 hour:</strong> Active analysis jobs are kept in server memory
+            for up to 1 hour after completion, then automatically evicted.
+        </li>
+        <li>
+            <strong>Source code included:</strong> The full Python source code, test suite, and build spec
+            are included in the <code>source/</code> folder. The application can be audited, rebuilt,
+            or modified by anyone with a Python environment.
+        </li>
+    </ul>
+</section>
+
+
+<hr />
+
+<div class="card" style="text-align:center; padding:2rem">
+    <div style="font-size:1.5rem; font-weight:700; color:#fff; margin-bottom:0.5rem">PyPRTG_CLA v1.1</div>
+    <div style="color:var(--muted); font-size:0.9rem; margin-bottom:1rem">PRTG Core Log Analyzer — built by Paessler support engineers, for Paessler support engineers.</div>
+    <div class="pill-row" style="justify-content:center">
+        <div class="pill"><span class="dot dot-green"></span>11 hardcoded rules</div>
+        <div class="pill"><span class="dot dot-blue"></span>17 automated tests</div>
+        <div class="pill"><span class="dot dot-purple"></span>500 error patterns tracked</div>
+        <div class="pill"><span class="dot dot-green"></span>Zero data leaves your machine</div>
+    </div>
+</div>
+
+</div><!-- /wrapper -->
+
+<footer>
+    PyPRTG_CLA v1.1 &nbsp;·&nbsp; User Manual &nbsp;·&nbsp;
+    All analysis is deterministic and based solely on the uploaded <code>Core.log</code> file.
+</footer>
+
+</body>
+</html>
