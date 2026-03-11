@@ -21,10 +21,5 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8077 " ^| findstr LISTENING
 
 timeout /t 1 /nobreak >nul
 
-echo [apply-update] Starting new version from %~dp0 ...
-REM Use /D to set working directory so the new EXE finds _internal correctly
-start "" /D "%~dp0" "%~dp0PyPRTG_CLA.exe"
-
-echo [apply-update] Done.
-timeout /t 2 /nobreak >nul
+echo [apply-update] Done. New version is started by the updater.
 endlocal

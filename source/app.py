@@ -388,10 +388,14 @@ async def apply_update() -> JSONResponse:
         else:
             raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
 
-    # Run batch in its own console so "start" can launch the new EXE; give it time to finish before we exit
+    exe_path = new_dir / "PyPRTG_CLA.exe"
+    if not exe_path.exists():
+        raise HTTPException(status_code=500, detail="PyPRTG_CLA.exe not found in new version.")
+
+    # Batch does wait + taskkill so old process and port are free
     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
     if sys.platform == "win32":
-        creationflags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)  # 0x10 = CREATE_NEW_CONSOLE
+        creationflags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)
     subprocess.Popen(
         ["cmd.exe", "/C", str(bat_path), str(current_dir)],
         cwd=str(new_dir),
@@ -400,7 +404,23 @@ async def apply_update() -> JSONResponse:
     )
 
     import threading
-    # Batch waits 4+1+2 sec and starts the new EXE; exit after so we don't kill the batch
-    threading.Timer(8.0, lambda: os._exit(0)).start()
+
+    def _launch_new_exe() -> None:
+        try:
+            flags = subprocess.CREATE_NEW_PROCESS_GROUP
+            if sys.platform == "win32":
+                flags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)
+            subprocess.Popen(
+                [str(exe_path)],
+                cwd=str(new_dir),
+                creationflags=flags,
+                close_fds=True,
+            )
+        except Exception as e:
+            log.exception("Failed to start new EXE: %s", e)
+
+    # After 6s batch has done wait+taskkill; we start the new EXE so it actually opens
+    threading.Timer(6.0, _launch_new_exe).start()
+    threading.Timer(9.0, lambda: os._exit(0)).start()
 
     return JSONResponse(content={"status": "updating", "new_version": new_ver, "new_dir": str(new_dir)})
