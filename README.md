@@ -1,4 +1,4 @@
-PyPRTG_CLA v1.1
+PyPRTG_CLA v1.3
 ================================
 
 A standalone tool that analyzes PRTG `Core.log` files and presents
@@ -26,7 +26,8 @@ v1.0f/
     │   ├── analysis.py                    Orchestrator + timeframe filter
     │   ├── erp_calculator.py              Refresh-rate calculation
     │   ├── timeline_analyzer.py           Restart/milestone timeline
-    │   └── report_generator.py            Standalone HTML report
+    │   ├── report_generator.py            Standalone HTML report
+    │   └── status_data_parser.py          Status Data (HTML/JSON) parser
     ├── frontend/                          Browser UI (HTML, CSS, JS, ECharts)
     └── tests/                             Unit + integration tests
 ```
@@ -50,9 +51,10 @@ First launch may take 5-15 seconds while the app unpacks itself.
 
 Using the web UI
 ----------------
-1. Drag & drop your PRTG `Core.log` (or `.gz`) onto the upload area.
+1. (Optional) Click "Upload Status Data" and select a PRTG Status Data `.htm` file from your support bundle.
+2. Drag & drop your PRTG `Core.log` (or `.gz`) onto the upload area.
 2. Wait while the log is parsed (live progress is shown).
-3. The dashboard appears with:
+3. The dashboard appears with (Status Data adds a Now/Historical toggle and Status Snapshot panel when uploaded):
    - Global system information (server, OS, CPU, RAM, license, paths)
    - Health score (0-100) and categorized findings
    - Sensors & probes analysis with impact breakdown

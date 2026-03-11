@@ -145,14 +145,8 @@ async function uploadViaFetch(file) {
   const formData = new FormData();
   formData.append("core_log", file);
   const statusFile = statusDataInput?.files?.[0];
-  console.log("[DEBUG] statusDataInput element:", statusDataInput);
-  console.log("[DEBUG] statusDataInput.files:", statusDataInput?.files);
-  console.log("[DEBUG] statusFile:", statusFile);
   if (statusFile) {
     formData.append("status_data", statusFile);
-    console.log("[DEBUG] Appended status_data to FormData:", statusFile.name, statusFile.size, "bytes");
-  } else {
-    console.log("[DEBUG] No status file selected — uploading Core.log only");
   }
   setStatus(statusFile ? "Uploading Core.log + Status Data..." : "Uploading Core.log...");
   setProgress(0.15);
@@ -198,14 +192,9 @@ async function uploadViaFetch(file) {
           return;
         }
         const result = await resultResponse.json();
-        console.log("[DEBUG] Result has status_snapshot:", !!result?.status_snapshot);
-        if (result?.status_snapshot) {
-          console.log("[DEBUG] status_snapshot keys:", Object.keys(result.status_snapshot));
-          console.log("[DEBUG] status_snapshot:", JSON.stringify(result.status_snapshot).slice(0, 300));
-        }
         resetResultState(result, lastHash);
         setProgress(1);
-        setStatus(result?.status_snapshot ? "Analysis complete. Status data included." : "Analysis complete.");
+        setStatus("Analysis complete.");
         if (dashboard) {
           dashboard.hidden = false;
           requestAnimationFrame(() => dashboard.classList.add("dashboard-visible"));
@@ -291,7 +280,6 @@ statusDataZone?.addEventListener("click", (event) => {
 });
 statusDataInput?.addEventListener("change", () => {
   const hasFile = statusDataInput.files?.length > 0;
-  console.log("[DEBUG] Status data file changed. hasFile:", hasFile, hasFile ? statusDataInput.files[0].name : "");
   statusDataZone?.classList.toggle("has-file", hasFile);
   if (statusDataLabel) {
     statusDataLabel.textContent = hasFile ? statusDataInput.files[0].name : "Upload Status Data";

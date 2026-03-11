@@ -473,17 +473,16 @@ def test_apply_timeframe_updates_snapshot_fields_and_distributions() -> None:
         assert previous["core"]["total_sensors"] == 80
         assert previous["core"]["total_probes"] == 1
         assert len(previous["core"]["probes"]) == 1
-        assert previous["core"]["global_impact_distribution"]["Low"]["total"] == 50
         assert previous["core"]["global_impact_distribution"]["Medium"]["total"] == 70
-        assert previous["core"]["global_impact_distribution"]["High"]["total"] == 90
+        assert previous["core"]["global_impact_distribution"]["High"]["total"] == 60
         assert previous["core"]["global_impact_distribution"]["Very High"]["total"] == 10
-        assert previous["core"]["interval_distribution"][30]["total"] == 60
-        assert previous["core"]["interval_distribution"][60]["total"] == 160
+        assert previous["core"]["interval_distribution"][30]["total"] == 40
+        assert previous["core"]["interval_distribution"][60]["total"] == 100
         assert previous["core"]["cpu_splitting_active"] is False
         assert previous["core"]["max_thread_runtime"] == 90
         assert previous["core"]["errors_since_last_restart"] == 2
-        assert previous["calculated_requests_per_min"] == 280.0
-        assert [bucket["count"] for bucket in previous["refresh_rate_distribution"]] == [60, 160]
+        assert previous["calculated_requests_per_min"] == 180.0
+        assert [bucket["count"] for bucket in previous["refresh_rate_distribution"]] == [40, 100]
         assert previous["core"]["total_errors"] == 2
         assert previous["core"]["total_warnings"] == 1
         assert len(previous["findings"]) >= 1
@@ -491,8 +490,8 @@ def test_apply_timeframe_updates_snapshot_fields_and_distributions() -> None:
         path.unlink(missing_ok=True)
 
 
-def test_apply_timeframe_aggregates_distributions_across_segments() -> None:
-    """Distributions should be summed over all segments in the time window, not taken from a single snapshot."""
+def test_apply_timeframe_uses_newest_snapshot_distributions() -> None:
+    """Distributions should reflect the most recent snapshot, not be summed across restarts."""
     path = _write_temp_log(_SAMPLE_TIMEFRAME_SNAPSHOTS_LOG)
     try:
         result = run_analysis(str(path))
@@ -506,27 +505,24 @@ def test_apply_timeframe_aggregates_distributions_across_segments() -> None:
         assert seg0_impact["Very High"]["total"] == 10
 
         comb_impact = combined["core"]["global_impact_distribution"]
-        assert comb_impact["Low"]["total"] == 50
         assert comb_impact["Medium"]["total"] == 70
-        assert comb_impact["High"]["total"] == 90
+        assert comb_impact["High"]["total"] == 60
         assert comb_impact["Very High"]["total"] == 10
         assert comb_impact["High"]["sensors"]["snmp"] == 60
-        assert comb_impact["High"]["sensors"]["http"] == 30
 
         seg0_interval = single["core"]["interval_distribution"]
         assert seg0_interval[30]["total"] == 40
         assert seg0_interval[60]["total"] == 100
 
         comb_interval = combined["core"]["interval_distribution"]
-        assert comb_interval[30]["total"] == 60
-        assert comb_interval[30]["sensors"]["ping"] == 60
-        assert comb_interval[60]["total"] == 160
+        assert comb_interval[30]["total"] == 40
+        assert comb_interval[30]["sensors"]["ping"] == 40
+        assert comb_interval[60]["total"] == 100
         assert comb_interval[60]["sensors"]["snmp"] == 60
-        assert comb_interval[60]["sensors"]["http"] == 40
+        assert comb_interval[60]["sensors"]["http"] == 10
         assert comb_interval[60]["sensors"]["wmi"] == 30
-        assert comb_interval[60]["sensors"]["ping"] == 30
 
-        assert combined["calculated_requests_per_min"] > single["calculated_requests_per_min"]
+        assert combined["calculated_requests_per_min"] == single["calculated_requests_per_min"]
     finally:
         path.unlink(missing_ok=True)
 
@@ -666,8 +662,8 @@ def test_api_timeframe_returns_timeframed_snapshot_fields(tmp_path, monkeypatch)
     assert body["core"]["prtg_version"] == "25.1.0"
     assert body["core"]["license_owner"] == "Old Corp"
     assert body["core"]["total_sensors"] == 80
-    assert body["calculated_requests_per_min"] == 280.0
-    assert [bucket["count"] for bucket in body["refresh_rate_distribution"]] == [60, 160]
+    assert body["calculated_requests_per_min"] == 180.0
+    assert [bucket["count"] for bucket in body["refresh_rate_distribution"]] == [40, 100]
 
     export_html = client.get(f"/api/export/html/{file_hash}?timeframe=2")
     assert export_html.status_code == 200

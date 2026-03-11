@@ -1,4 +1,4 @@
-# PyPRTG_CLA v1.1 — User Manual
+# PyPRTG_CLA v1.3 — User Manual
 
 > **100% deterministic · 11 hardcoded rules · Runs 100% locally — no data leaves your machine**
 
@@ -9,7 +9,7 @@
 1. [What is PyPRTG_CLA?](#1-what-is-pyprtg_cla)
 2. [System Requirements](#2-system-requirements)
 3. [Installation & First Launch](#3-installation--first-launch)
-4. [Uploading a Core.log File](#4-uploading-a-corelog-file)
+4. [Uploading Core.log and Status Data](#4-uploading-corelog-and-status-data)
 5. [Tab: Overview](#5-tab-overview)
 6. [Tab: Findings](#6-tab-findings)
 7. [Tab: Top Errors](#7-tab-top-errors)
@@ -93,9 +93,9 @@ There is no installation step. The entire application ships as a single file: `P
 
 ---
 
-## 4. Uploading a Core.log File
+## 4. Uploading Core.log and Status Data
 
-### Supported file formats
+### Core.log (required)
 
 | Format | Extension | Notes |
 |---|---|---|
@@ -105,11 +105,23 @@ There is no installation step. The entire application ships as a single file: `P
 
 File encoding is auto-detected: `UTF-8`, `UTF-16`, and `latin-1` are all handled.
 
+### Status Data (optional)
+
+You can optionally upload a **PRTG Status Data** file from the same support bundle. This adds a **Status Snapshot** panel showing live sensor counts and metrics from when the bundle was created (instead of from the last PRTG restart).
+
+| File | Format | What it provides |
+|---|---|---|
+| `PRTG Status Data.htm` | HTML | Full metrics: CPU load, RPS, slow request ratio, impact distribution |
+| `Status Data.htm` | JSON | Sensor status counts: up, warning, down, paused, unknown |
+
+Both formats are auto-detected. If no Status Data file is uploaded, the app works exactly as before — nothing changes.
+
 ### How to upload
 
-1. **Drag and drop** your `Core.log` file onto the upload area, or click the area to open a file browser.
-2. A **live progress bar** shows parsing status in real time. Large files (hundreds of MB) are processed with a streaming parser — memory usage stays low.
-3. When analysis completes, the dashboard appears automatically with all tabs and charts populated.
+1. (Optional) Click **Upload Status Data** and select your `.htm` file from the support bundle. The button will show the selected filename.
+2. **Upload Core.log**: Drag and drop your `Core.log` onto the upload area, or click it to open a file browser.
+3. A **live progress bar** shows parsing status in real time. Large files (hundreds of MB) are processed with a streaming parser — memory usage stays low.
+4. When analysis completes, the dashboard appears automatically with all tabs and charts populated.
 
 ### Instant re-analysis from cache
 
@@ -123,6 +135,17 @@ Every uploaded file is identified by its **SHA-256 hash**. Re-uploading the same
 ## 5. Tab: Overview
 
 The Overview tab is the landing view after a successful analysis.
+
+### View toggle (Now / Historical)
+
+If you uploaded a Status Data file, a **View: Now | Historical** toggle appears above the dashboard. Use it to switch between:
+
+- **Now** — Shows the Status Snapshot panel (live data from the bundle). The time-window slider is hidden.
+- **Historical** — Shows the time-window slider. The Status Snapshot panel is visible when the slider is set to "All".
+
+### Status Snapshot panel (when Status Data was uploaded)
+
+This panel shows metrics from the Status Data file (bundle creation time). For **HTML** format: total sensors, CPU load, requests/second, slow request ratio, and sensor impact by level. For **JSON** format: total sensors, up/warning/down counts (color-coded), and PRTG version. When available, values are compared to the last boot from the Core.log.
 
 ### Global Snapshot panel
 
@@ -433,11 +456,11 @@ Error deduplication replaces variable parts (GUIDs, thread IDs, hex values, long
 
 ### 5. Version-keyed cache invalidation
 
-Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.1`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
+Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.3`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
 
 ### 6. Comprehensive automated test suite
 
-**17 automated test functions** covering:
+**38 automated test functions** covering:
 
 - Every data model contract and field type
 - Segment assignment and boundary detection
@@ -445,6 +468,7 @@ Results are cached on the SHA-256 hash of the file *and* the analyzer version st
 - Timeframe filtering across multiple segment configurations
 - All API endpoints (upload, progress, result, export)
 - Cache behavior and version-keyed invalidation
+- Status Data parser (HTML and JSON formats from support bundles)
 - **Performance budgets:** 5,000 errors processed in < 8 s; 200 restarts handled in < 5 s
 - Encoding handling (UTF-8, UTF-16, latin-1)
 - Score clamping (always in 0–100)
@@ -504,5 +528,5 @@ Click **More info** → **Run anyway**. The binary is unsigned. The full source 
 
 ---
 
-*PyPRTG_CLA v1.1 — PRTG Core Log Analyzer*  
-*All analysis is deterministic and based solely on the uploaded `Core.log` file.*
+*PyPRTG_CLA v1.3 — PRTG Core Log Analyzer*  
+*All analysis is deterministic and based solely on the uploaded `Core.log` file and optional Status Data.*

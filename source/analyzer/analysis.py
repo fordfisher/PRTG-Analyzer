@@ -114,30 +114,6 @@ def _overlay_snapshot_fields(core: Dict[str, Any], snapshot: Dict[str, Any]) -> 
         core[key] = deepcopy(value)
 
 
-def _aggregate_distributions(snapshots: list, count: int) -> tuple:
-    """Merge global_impact_distribution and interval_distribution across the first *count* snapshots."""
-    merged_impact: Dict[str, Dict[str, Any]] = {}
-    merged_interval: Dict[Any, Dict[str, Any]] = {}
-
-    for idx in range(min(count, len(snapshots))):
-        snap = snapshots[idx]
-
-        for level, info in (snap.get("global_impact_distribution") or {}).items():
-            if level not in merged_impact:
-                merged_impact[level] = {"total": 0, "sensors": {}}
-            merged_impact[level]["total"] += info.get("total", 0)
-            for stype, scount in (info.get("sensors") or {}).items():
-                merged_impact[level]["sensors"][stype] = merged_impact[level]["sensors"].get(stype, 0) + scount
-
-        for interval_key, info in (snap.get("interval_distribution") or {}).items():
-            if interval_key not in merged_interval:
-                merged_interval[interval_key] = {"total": 0, "sensors": {}}
-            merged_interval[interval_key]["total"] += info.get("total", 0)
-            for stype, scount in (info.get("sensors") or {}).items():
-                merged_interval[interval_key]["sensors"][stype] = merged_interval[interval_key]["sensors"].get(stype, 0) + scount
-
-    return merged_impact, merged_interval
-
 
 def _build_timeframed_core(core: Dict[str, Any], count: int) -> Dict[str, Any]:
     snapshots = core.get("segment_snapshots") or []
@@ -147,9 +123,9 @@ def _build_timeframed_core(core: Dict[str, Any], count: int) -> Dict[str, Any]:
     _overlay_snapshot_fields(result_core, active_snapshot)
 
     if snapshots:
-        merged_impact, merged_interval = _aggregate_distributions(snapshots, count)
-        result_core["global_impact_distribution"] = merged_impact
-        result_core["interval_distribution"] = merged_interval
+        newest = snapshots[0]
+        result_core["global_impact_distribution"] = deepcopy(newest.get("global_impact_distribution") or {})
+        result_core["interval_distribution"] = deepcopy(newest.get("interval_distribution") or {})
 
     err_per = core.get("errors_per_segment") or []
     warn_per = core.get("warnings_per_segment") or []
