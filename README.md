@@ -1,4 +1,4 @@
-PyPRTG_CLA v1.3
+PyPRTG_CLA v1.4
 ================================
 
 A standalone tool that analyzes PRTG `Core.log` files and presents
@@ -107,7 +107,7 @@ pip install pyinstaller
 python -m PyInstaller PRTG_Analyzerv1.0f.spec --noconfirm
 ```
 
-   For releases: name the EXE with the version (e.g. `PyPRTG_CLA_v1.3.exe`) to match the auto-update mechanism — set `name='PyPRTG_CLA_v1.3'` in the spec or rename the output.
+   For releases: name the EXE with the version (e.g. `PyPRTG_CLA_v1.4.exe`) to match the auto-update mechanism — set `name='PyPRTG_CLA_v1.4'` in the spec or rename the output.
 
 Notes
 -----

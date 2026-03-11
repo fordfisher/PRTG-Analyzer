@@ -1,4 +1,4 @@
-# PyPRTG_CLA v1.3 — User Manual
+# PyPRTG_CLA v1.4 — User Manual
 
 > **100% deterministic · 11 hardcoded rules · Runs 100% locally — no data leaves your machine**
 
@@ -456,7 +456,7 @@ Error deduplication replaces variable parts (GUIDs, thread IDs, hex values, long
 
 ### 5. Version-keyed cache invalidation
 
-Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.3`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
+Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.4`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
 
 ### 6. Comprehensive automated test suite
 
@@ -528,5 +528,5 @@ Click **More info** → **Run anyway**. The binary is unsigned. The full source 
 
 ---
 
-*PyPRTG_CLA v1.3 — PRTG Core Log Analyzer*  
+*PyPRTG_CLA v1.4 — PRTG Core Log Analyzer*  
 *All analysis is deterministic and based solely on the uploaded `Core.log` file and optional Status Data.*

@@ -31,10 +31,23 @@ html, body {
   display: flex;
   align-items: baseline;
   gap: 16px;
+  flex-wrap: wrap;
   backdrop-filter: blur(18px);
   background: linear-gradient(90deg, rgba(10, 30, 60, 0.9), rgba(3, 10, 25, 0.7));
   border-bottom: 1px solid rgba(0, 240, 255, 0.35);
   box-shadow: 0 0 40px rgba(0, 240, 255, 0.18);
+}
+
+.header-spacer {
+  flex: 1;
+  min-width: 16px;
+}
+
+.update-status {
+  font-size: 0.8rem;
+  color: var(--muted, #94a3b8);
+  margin-right: 8px;
+  min-height: 1.2em;
 }
 
 .logo {
@@ -751,4 +764,20 @@ html, body {
   transition: opacity 0.15s;
 }
 .update-banner-dismiss:hover { opacity: 1; }
+
+.check-updates-btn {
+  padding: 6px 14px;
+  margin-left: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+  background: rgba(30, 41, 59, 0.6);
+  color: var(--muted, #94a3b8);
+  cursor: pointer;
+  font-size: 0.78rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+.check-updates-btn:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+  color: #e2e8f0;
+}
 

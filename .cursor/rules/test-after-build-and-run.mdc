@@ -1,0 +1,14 @@
+---
+description: Before asking user to test the app/EXE, build the EXE and run it first
+alwaysApply: true
+---
+
+# Test after build and run
+
+Before asking the user to test the application (EXE or in-browser UI):
+
+1. **Build an updated EXE** if the project has a PyInstaller spec (e.g. `PRTG_Analyzer.spec`): run the build from repo root, then copy `apply-update.bat` from `dist/PyPRTG_CLA/_internal/` to `dist/PyPRTG_CLA/` if needed for release layout.
+2. **Run the app** (either the newly built EXE or `python run_analyzer.py` from `source/`) so it is already running when you hand off to the user.
+3. **Then** ask the user to test (e.g. open http://127.0.0.1:8077 and try the flow).
+
+Do not ask the user to "please test the EXE" or "run the app and test" without having built and started it first.

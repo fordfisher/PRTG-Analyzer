@@ -293,18 +293,31 @@ attachExportButtons();
 // Auto-update
 // ---------------------------------------------------------------------------
 
-async function checkForUpdate() {
+function showUpdateStatus(message, clearAfterMs = 4000) {
+  const el = document.getElementById("update-status");
+  if (!el) return;
+  el.textContent = message;
+  if (clearAfterMs > 0) setTimeout(() => { el.textContent = ""; }, clearAfterMs);
+}
+
+async function checkForUpdate(userInitiated = false) {
   try {
     const resp = await fetch("/api/update-check");
     if (!resp.ok) return;
     const info = await resp.json();
-    if (info.up_to_date || info.error) return;
+
+    if (info.up_to_date || info.error) {
+      if (userInitiated) showUpdateStatus("Up to date", 4000);
+      return;
+    }
 
     const banner = document.getElementById("update-banner");
     const bannerText = document.getElementById("update-banner-text");
     const updateBtn = document.getElementById("update-btn");
     const dismissBtn = document.getElementById("update-dismiss");
     if (!banner || !bannerText || !updateBtn) return;
+
+    document.getElementById("update-status").textContent = "";
 
     bannerText.textContent = `v${info.latest} available`;
     banner.hidden = false;
@@ -340,4 +353,5 @@ async function checkForUpdate() {
 }
 
 checkForUpdate();
+document.getElementById("check-updates-btn")?.addEventListener("click", () => checkForUpdate(true));
 
