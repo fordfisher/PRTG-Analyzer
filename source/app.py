@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -352,7 +353,10 @@ async def apply_update() -> JSONResponse:
     new_dir = parent_dir / f"PyPRTG_CLA_v{new_ver}"
 
     if new_dir.exists():
-        raise HTTPException(status_code=400, detail=f"Folder {new_dir.name} already exists. Remove it first or run the new version manually.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Folder {new_dir.name} already exists at: {new_dir.resolve()}. Remove it or run that version manually, then try again.",
+        )
 
     zip_path = parent_dir / f"PyPRTG_CLA_v{new_ver}.zip"
     try:
@@ -377,8 +381,12 @@ async def apply_update() -> JSONResponse:
         raise HTTPException(status_code=500, detail=f"Download/extract failed: {exc}")
 
     bat_path = new_dir / "apply-update.bat"
+    bat_in_internal = new_dir / "_internal" / "apply-update.bat"
     if not bat_path.exists():
-        raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
+        if bat_in_internal.exists():
+            shutil.copy2(str(bat_in_internal), str(bat_path))
+        else:
+            raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
 
     # Run batch in its own console so "start" can launch the new EXE; give it time to finish before we exit
     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
