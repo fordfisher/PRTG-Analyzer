@@ -107,6 +107,8 @@ pip install pyinstaller
 python -m PyInstaller PRTG_Analyzerv1.0f.spec --noconfirm
 ```
 
+   For releases: name the EXE with the version (e.g. `PyPRTG_CLA_v1.3.exe`) to match the auto-update mechanism — set `name='PyPRTG_CLA_v1.3'` in the spec or rename the output.
+
 Notes
 -----
 - Input is a single `Core.log` file (optionally `.gz` compressed).

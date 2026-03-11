@@ -355,7 +355,7 @@
         <li><a href="#about">What is PyPRTG_CLA?</a></li>
         <li><a href="#requirements">System Requirements</a></li>
         <li><a href="#install">Installation &amp; First Launch</a></li>
-        <li><a href="#upload">Uploading a Core.log File</a></li>
+        <li><a href="#upload">Uploading Core.log and Status Data</a></li>
         <li><a href="#overview-tab">Tab: Overview</a></li>
         <li><a href="#findings-tab">Tab: Findings</a></li>
         <li><a href="#top-errors-tab">Tab: Top Errors</a></li>
@@ -401,7 +401,10 @@
     </ul>
 
     <h3 class="sub-title">What does it analyze?</h3>
-    <p>Everything it reports comes <em>directly</em> from the log:</p>
+    <p>
+        Everything in the main analysis comes <em>directly</em> from the log. When a Status Data file is uploaded, an additional Status Snapshot shows live metrics from the bundle.
+    </p>
+    <p>From the log:</p>
     <ul>
         <li>Server name, PRTG version, license owner, OS, CPU, RAM, storage paths, timezone</li>
         <li>Total sensors, probes, devices, groups, channels, users</li>
@@ -490,13 +493,13 @@
 
 
 <!-- ════════════════════════════════════════════════════════
-     4. UPLOADING A LOG FILE
+     4. UPLOADING CORE.LOG AND STATUS DATA
 ════════════════════════════════════════════════════════ -->
 <section class="section" id="upload">
     <span class="section-label">Section 4</span>
-    <h2 class="section-title">Uploading a Core.log File</h2>
+    <h2 class="section-title">Uploading Core.log and Status Data</h2>
 
-    <h3 class="sub-title">Supported file formats</h3>
+    <h3 class="sub-title">Core.log (required)</h3>
     <div class="table-wrap">
         <table>
             <thead>
@@ -512,10 +515,28 @@
 
     <p>File encoding is auto-detected: <code>UTF-8</code>, <code>UTF-16</code>, and <code>latin-1</code> are all handled.</p>
 
+    <h3 class="sub-title">Status Data (optional)</h3>
+    <p>
+        You can optionally upload a <strong>PRTG Status Data</strong> file from the same support bundle. This adds a <strong>Status Snapshot</strong> panel showing live sensor counts and metrics from when the bundle was created (instead of from the last PRTG restart).
+    </p>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>File</th><th>Format</th><th>What it provides</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>PRTG Status Data.htm</code></td><td>HTML</td><td>Full metrics: CPU load, RPS, slow request ratio, impact distribution</td></tr>
+                <tr><td><code>Status Data.htm</code></td><td>JSON</td><td>Sensor status counts: up, warning, down, paused, unknown</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>Both formats are auto-detected. If no Status Data file is uploaded, the app works exactly as before.</p>
+
     <h3 class="sub-title">How to upload</h3>
     <ol class="steps">
-        <li><strong>Drag and drop</strong> your <code>Core.log</code> file directly onto the upload area on the homepage, or click the area to open a file browser.</li>
-        <li>A <strong>live progress bar</strong> shows parsing status in real time via a server-sent event stream. Large files (hundreds of MB) are processed with a streaming parser — memory usage stays low.</li>
+        <li>(Optional) Click <strong>Upload Status Data</strong> and select your <code>.htm</code> file from the support bundle. The button will show the selected filename.</li>
+        <li><strong>Upload Core.log</strong>: Drag and drop your <code>Core.log</code> onto the upload area, or click it to open a file browser.</li>
+        <li>A <strong>live progress bar</strong> shows parsing status in real time. Large files (hundreds of MB) are processed with a streaming parser — memory usage stays low.</li>
         <li>When analysis completes, the dashboard appears automatically with all tabs and charts populated.</li>
     </ol>
 
@@ -542,6 +563,20 @@
     <h2 class="section-title">Tab: Overview</h2>
 
     <p>The Overview tab is the landing view after a successful analysis. It provides a full at-a-glance picture of the PRTG instance.</p>
+
+    <h3 class="sub-title">View toggle (Now / Historical)</h3>
+    <p>
+        If you uploaded a Status Data file, a <strong>View: Now | Historical</strong> toggle appears above the dashboard. Use it to switch between:
+    </p>
+    <ul>
+        <li><strong>Now</strong> — Shows the Status Snapshot panel (live data from the bundle). The time-window slider is hidden.</li>
+        <li><strong>Historical</strong> — Shows the time-window slider. The Status Snapshot panel is visible when the slider is set to "All".</li>
+    </ul>
+
+    <h3 class="sub-title">Status Snapshot panel (when Status Data was uploaded)</h3>
+    <p>
+        This panel shows metrics from the Status Data file (bundle creation time). For <strong>HTML</strong> format: total sensors, CPU load, requests/second, slow request ratio, and sensor impact by level. For <strong>JSON</strong> format: total sensors, up/warning/down counts (color-coded), and PRTG version. When available, values are compared to the last boot from the Core.log.
+    </p>
 
     <h3 class="sub-title">Global Snapshot panel</h3>
     <p>Displays the most critical identifiers extracted directly from the log:</p>
@@ -1013,14 +1048,14 @@
                 </tr>
                 <tr>
                     <td><code>RULE_4_OS</code></td>
-                    <td>Deprecated Windows Server OS</td>
+                    <td>Deprecated Windows Server version</td>
                     <td>OS year is 2008 or 2012</td>
                     <td><span class="chip chip-red">Critical</span></td>
                     <td>−10</td>
                 </tr>
                 <tr>
                     <td><code>RULE_4_OS</code></td>
-                    <td>Aging Windows Server OS</td>
+                    <td>Aging Windows Server version</td>
                     <td>OS year is 2016</td>
                     <td><span class="chip chip-yellow">Warning</span></td>
                     <td>−5</td>
@@ -1198,15 +1233,14 @@
     <h3 class="sub-title">5. Version-keyed cache invalidation</h3>
     <p>
         Analysis results are cached to disk keyed on two factors: the SHA-256 hash of the uploaded file
-        <em>and</em> the analyzer version string (<code>1.1</code>). Upgrading to a new version of
+        <em>and</em> the analyzer version string (<code>1.3</code>). Upgrading to a new version of
         PyPRTG_CLA automatically invalidates all existing cached results and forces a fresh analysis —
         ensuring that improved parsing logic is always applied.
     </p>
 
     <h3 class="sub-title">6. Comprehensive automated test suite</h3>
     <p>
-        The application ships with <strong>17 automated test functions</strong> covering:
-    </p>
+        The application ships with <strong>38 automated test functions</strong> covering:
     <ul>
         <li>Every data model contract and field type</li>
         <li>Segment assignment and boundary detection</li>
@@ -1214,6 +1248,7 @@
         <li>Timeframe filtering across multiple segment configurations</li>
         <li>All API endpoints (upload, progress, result, export)</li>
         <li>Cache behavior and version-keyed invalidation</li>
+        <li>Status Data parser (HTML and JSON formats from support bundles)</li>
         <li><strong>Performance budgets:</strong> 5,000 errors processed in &lt; 8 seconds; 200 restarts handled in &lt; 5 seconds</li>
         <li>Encoding handling (UTF-8, UTF-16, latin-1)</li>
         <li>Score clamping (result always in 0–100)</li>
@@ -1348,7 +1383,7 @@
     <div style="color:var(--muted); font-size:0.9rem; margin-bottom:1rem">PRTG Core Log Analyzer — built by Paessler support engineers, for Paessler support engineers.</div>
     <div class="pill-row" style="justify-content:center">
         <div class="pill"><span class="dot dot-green"></span>11 hardcoded rules</div>
-        <div class="pill"><span class="dot dot-blue"></span>17 automated tests</div>
+        <div class="pill"><span class="dot dot-blue"></span>38 automated tests</div>
         <div class="pill"><span class="dot dot-purple"></span>500 error patterns tracked</div>
         <div class="pill"><span class="dot dot-green"></span>Zero data leaves your machine</div>
     </div>
@@ -1358,7 +1393,7 @@
 
 <footer>
     PyPRTG_CLA v1.3 &nbsp;·&nbsp; User Manual &nbsp;·&nbsp;
-    All analysis is deterministic and based solely on the uploaded <code>Core.log</code> file.
+    All analysis is deterministic and based solely on the uploaded <code>Core.log</code> file and optional Status Data.
 </footer>
 
 </body>

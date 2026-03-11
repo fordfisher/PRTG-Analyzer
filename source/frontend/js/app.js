@@ -289,3 +289,55 @@ statusDataInput?.addEventListener("change", () => {
 window.addEventListener("resize", debounce(() => chartManager.resizeVisible(), 120));
 attachExportButtons();
 
+// ---------------------------------------------------------------------------
+// Auto-update
+// ---------------------------------------------------------------------------
+
+async function checkForUpdate() {
+  try {
+    const resp = await fetch("/api/update-check");
+    if (!resp.ok) return;
+    const info = await resp.json();
+    if (info.up_to_date || info.error) return;
+
+    const banner = document.getElementById("update-banner");
+    const bannerText = document.getElementById("update-banner-text");
+    const updateBtn = document.getElementById("update-btn");
+    const dismissBtn = document.getElementById("update-dismiss");
+    if (!banner || !bannerText || !updateBtn) return;
+
+    bannerText.textContent = `v${info.latest} available`;
+    banner.hidden = false;
+
+    dismissBtn?.addEventListener("click", () => { banner.hidden = true; });
+
+    updateBtn.addEventListener("click", async () => {
+      if (!confirm(`Update to v${info.latest}?\n\nThe app will restart automatically.`)) return;
+      updateBtn.disabled = true;
+      updateBtn.textContent = "Downloading...";
+      try {
+        const r = await fetch("/api/apply-update", { method: "POST" });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          alert(`Update failed: ${err.detail || r.statusText}`);
+          updateBtn.disabled = false;
+          updateBtn.textContent = "Update now";
+          return;
+        }
+        bannerText.textContent = "Restarting...";
+        updateBtn.hidden = true;
+        if (dismissBtn) dismissBtn.hidden = true;
+        setTimeout(() => { window.location.reload(); }, 8000);
+      } catch (e) {
+        alert(`Update error: ${e.message}`);
+        updateBtn.disabled = false;
+        updateBtn.textContent = "Update now";
+      }
+    });
+  } catch {
+    // silently ignore — not critical
+  }
+}
+
+checkForUpdate();
+

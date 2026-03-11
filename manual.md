@@ -39,7 +39,7 @@
 
 ### What does it analyze?
 
-Everything it reports comes *directly* from the log:
+Everything in the main analysis comes *directly* from the log. When a Status Data file is uploaded, an additional Status Snapshot shows live metrics from the bundle.
 
 - Server name, PRTG version, license owner, OS, CPU, RAM, storage paths, timezone
 - Total sensors, probes, devices, groups, channels, users
@@ -391,8 +391,8 @@ All rules are static, explicit code based on Paessler's published PRTG sizing gu
 |---|---|---|---|---|
 | `RULE_1_CPU` | CPU cores below recommended | CPU cores < 95% of required tier | 🔴 Critical | −10 |
 | `RULE_2_RAM` | RAM below recommended tier | RAM < 90% of required tier | 🔴 Critical | −10 |
-| `RULE_4_OS` | Deprecated Windows Server OS | OS year is 2008 or 2012 | 🔴 Critical | −10 |
-| `RULE_4_OS` | Aging Windows Server OS | OS year is 2016 | ⚠️ Warning | −5 |
+| `RULE_4_OS` | Deprecated Windows Server version | OS year is 2008 or 2012 | 🔴 Critical | −10 |
+| `RULE_4_OS` | Aging Windows Server version | OS year is 2016 | ⚠️ Warning | −5 |
 | `RULE_7_ERRORS` | Errors detected in Core.log | > 0 operational errors | ⚠️ Warning | −5 |
 | `RULE_7_ERRORS` | Many distinct error patterns | > 50 distinct error patterns | 🔴 Critical | −8 |
 | `RULE_11_ERP` | High scanning load | Calculated req/min > 15,000 | 🔴 Critical | −10 |

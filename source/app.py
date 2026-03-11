@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
+import subprocess
+import sys
 import tempfile
 import time
+import urllib.request
 import uuid
+import zipfile
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Optional
 
@@ -16,7 +21,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from analyzer.analysis import apply_timeframe, run_analysis
 from analyzer.status_data_parser import parse_status_data
-from analyzer.version import ANALYZER_VERSION
+from analyzer.version import ANALYZER_VERSION, GITHUB_OWNER, GITHUB_REPO
+
+log = logging.getLogger(__name__)
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -262,3 +269,125 @@ async def export_html(file_hash: str, timeframe: Optional[str] = Query(None)) ->
     data = _result_for_timeframe(file_hash, timeframe)
     html = build_enterprise_html_report(data, errors_time_frame=timeframe)
     return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
+# Auto-update helpers
+# ---------------------------------------------------------------------------
+
+_UPDATE_CACHE: Dict[str, Any] = {}
+_UPDATE_CACHE_TTL = 60 * 60  # 1 hour
+
+
+def _version_tuple(v: str) -> tuple:
+    """Turn '1.3' or 'v1.3' into (1, 3) for comparison."""
+    return tuple(int(x) for x in v.lstrip("v").split("."))
+
+
+def _check_github_release() -> Dict[str, Any]:
+    """Call GitHub Releases API once, then cache for _UPDATE_CACHE_TTL seconds."""
+    now = time.time()
+    if _UPDATE_CACHE.get("result") and now - _UPDATE_CACHE.get("checked_at", 0) < _UPDATE_CACHE_TTL:
+        return _UPDATE_CACHE["result"]
+
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
+    req = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+    except Exception as exc:
+        log.warning("Update check failed: %s", exc)
+        return {"error": str(exc), "up_to_date": True, "current": ANALYZER_VERSION, "latest": ANALYZER_VERSION}
+
+    tag = data.get("tag_name", "")
+    latest = tag.lstrip("v")
+
+    zip_url = ""
+    for asset in data.get("assets", []):
+        if asset.get("name", "").endswith(".zip"):
+            zip_url = asset["browser_download_url"]
+            break
+
+    up_to_date = _version_tuple(ANALYZER_VERSION) >= _version_tuple(latest) if latest else True
+    result = {
+        "current": ANALYZER_VERSION,
+        "latest": latest,
+        "up_to_date": up_to_date,
+        "download_url": zip_url,
+        "release_url": data.get("html_url", ""),
+    }
+    _UPDATE_CACHE["result"] = result
+    _UPDATE_CACHE["checked_at"] = now
+    return result
+
+
+@app.get("/api/update-check")
+async def update_check() -> JSONResponse:
+    return JSONResponse(content=_check_github_release())
+
+
+def _install_dir() -> Path:
+    """Return the folder that contains the running EXE (frozen) or the source dir (dev)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return BASE_DIR
+
+
+@app.post("/api/apply-update")
+async def apply_update() -> JSONResponse:
+    if not getattr(sys, "frozen", False):
+        raise HTTPException(status_code=400, detail="Auto-update is only available in the packaged EXE build.")
+
+    info = _check_github_release()
+    if info.get("up_to_date"):
+        raise HTTPException(status_code=400, detail="Already up to date.")
+
+    zip_url = info.get("download_url")
+    if not zip_url:
+        raise HTTPException(status_code=400, detail="No ZIP asset found in the latest release.")
+
+    new_ver = info["latest"]
+    current_dir = _install_dir()
+    parent_dir = current_dir.parent
+    new_dir = parent_dir / f"PyPRTG_CLA_v{new_ver}"
+
+    if new_dir.exists():
+        raise HTTPException(status_code=400, detail=f"Folder {new_dir.name} already exists. Remove it first or run the new version manually.")
+
+    zip_path = parent_dir / f"PyPRTG_CLA_v{new_ver}.zip"
+    try:
+        log.info("Downloading update from %s", zip_url)
+        urllib.request.urlretrieve(zip_url, str(zip_path))
+
+        log.info("Extracting to %s", new_dir)
+        with zipfile.ZipFile(str(zip_path), "r") as zf:
+            zf.extractall(str(parent_dir))
+
+        if not new_dir.exists():
+            extracted = [d for d in parent_dir.iterdir() if d.is_dir() and d.name.startswith("PyPRTG_CLA")]
+            for d in extracted:
+                if d != current_dir and d.name != zip_path.stem:
+                    d.rename(new_dir)
+                    break
+
+        zip_path.unlink(missing_ok=True)
+    except Exception as exc:
+        zip_path.unlink(missing_ok=True)
+        log.exception("Update failed")
+        raise HTTPException(status_code=500, detail=f"Download/extract failed: {exc}")
+
+    bat_path = new_dir / "apply-update.bat"
+    if not bat_path.exists():
+        raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
+
+    subprocess.Popen(
+        ["cmd.exe", "/C", str(bat_path), str(current_dir)],
+        cwd=str(new_dir),
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+        close_fds=True,
+    )
+
+    import threading
+    threading.Timer(1.5, lambda: os._exit(0)).start()
+
+    return JSONResponse(content={"status": "updating", "new_version": new_ver, "new_dir": str(new_dir)})
