@@ -1,7 +1,15 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   background: radial-gradient(circle at top, #101826 0%, #02030a 60%, #000000 100%);
   color: #e4f0ff;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -22,8 +30,11 @@ html, body {
   position: relative;
   z-index: 1;
   min-height: 100vh;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
 }
 
 .app-header {
@@ -64,13 +75,14 @@ html, body {
 
 .app-main {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  width: 100%;
   padding: 16px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 100%;
-  width: 100%;
-  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .upload-bar {
@@ -78,6 +90,8 @@ html, body {
   align-items: center;
   gap: 20px;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px 16px;
   background: linear-gradient(145deg, rgba(8, 20, 40, 0.92), rgba(4, 8, 20, 0.96));
   border-radius: 12px;
@@ -165,6 +179,12 @@ html, body {
 }
 
 .panel {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   background: linear-gradient(145deg, rgba(8, 20, 40, 0.92), rgba(4, 8, 20, 0.96));
   border-radius: 16px;
   border: 1px solid rgba(120, 240, 255, 0.35);
@@ -175,10 +195,13 @@ html, body {
 
 .dashboard {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  overflow: hidden;
   opacity: 0;
   transform: scale(0.985);
   transition: opacity 0.3s ease-out, transform 0.3s ease-out;
@@ -352,12 +375,17 @@ html, body {
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .tabs button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
   border-radius: 999px;
   border: 1px solid rgba(125, 249, 255, 0.45);
   background: radial-gradient(circle at top, rgba(0, 240, 255, 0.22), rgba(2, 8, 20, 0.9));
@@ -391,8 +419,10 @@ html, body {
 
 .tab-content.active {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
   opacity: 1;
   transform: translateY(0);
 }
@@ -415,6 +445,8 @@ html, body {
 }
 
 .chart {
+  min-width: 0;
+  max-width: 100%;
   min-height: 260px;
   border-radius: 16px;
   border: 1px solid rgba(120, 240, 255, 0.35);
@@ -559,14 +591,25 @@ html, body {
 
 .split-row {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
+  min-width: 0;
+  max-width: 100%;
+}
+
+#sensors-table.panel,
+#probe-impact-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pill-row {
   display: flex;
   flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
   gap: 6px;
   justify-content: flex-end;
 }
@@ -625,6 +668,9 @@ html, body {
 
 .mono-block {
   white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+  overflow-x: auto;
   opacity: 0.9;
 }
 
@@ -649,20 +695,31 @@ html, body {
 
 .kv-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .kv-key {
+  flex-shrink: 0;
   width: 140px;
   opacity: 0.8;
+}
+
+.kv-value {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .probe-header,
 .probe-row {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) 0.8fr 0.8fr;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 0.8fr) minmax(0, 0.8fr);
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .probe-header {
@@ -696,8 +753,15 @@ html, body {
 }
 
 .timeline-time {
-  width: 170px;
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 170px;
   color: #9fb5ff;
+}
+
+.timeline-row > *:not(.timeline-time) {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .tab-message {
