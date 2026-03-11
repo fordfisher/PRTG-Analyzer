@@ -1,23 +1,22 @@
-PyPRTG_CLA v1.5.2
+PyPRTG_CLA v1.5.4
 ================================
 
 A standalone tool that analyzes PRTG `Core.log` files and presents
-an interactive health dashboard in your browser.
+an interactive health dashboard in your browser. Supports in-app updates
+from GitHub releases.
 
-Package contents
-----------------
+Package contents (release zip)
+------------------------------
 
 ```
-v1.0f/
+PyPRTG_CLA_v1.5.4/
 ├── PyPRTG_CLA.exe                         Main application (self-contained)
-├── README.md                              This file
-├── manual.html                            Detailed user manual
-├── PRTG_Analyzer_Confluence_Blog_Post.md  Blog post for Confluence
-└── source/                                Full source code
-    ├── app.py                             FastAPI app (upload, caching, exports)
+├── apply-update.bat                       Used by in-app updater
+├── _internal/                             Runtime and assets
+└── source/                                (Repo only) Full source code
+    ├── app.py                             FastAPI app (upload, caching, exports, updater)
     ├── run_analyzer.py                    Entry point (dev + PyInstaller)
     ├── requirements.txt                   Python dependencies
-    ├── PRTG_Analyzerv1.0f.spec            PyInstaller build spec
     ├── analyzer/                          Core analysis package
     │   ├── version.py                     Single source of truth for version
     │   ├── models.py                      Pydantic data models
@@ -48,6 +47,10 @@ Starting the analyzer
 4. Open your browser at http://127.0.0.1:8077
 
 First launch may take 5-15 seconds while the app unpacks itself.
+
+In-app updates
+--------------
+When a newer version is available on GitHub, the app shows an update notice. Click **Check for updates** in the header, then **Update now**. The app downloads the new version, restarts, and the page reloads when the new instance is ready (or use the **Reload page** button).
 
 Using the web UI
 ----------------
@@ -100,14 +103,13 @@ python run_analyzer.py
 python -m pytest tests/ -v
 ```
 
-5. Build a new EXE:
+5. Build a new EXE and release zip (from repo root):
 
-```bash
-pip install pyinstaller
-python -m PyInstaller PRTG_Analyzerv1.0f.spec --noconfirm
+```powershell
+.\build-and-release.ps1
 ```
 
-   For releases: name the EXE with the version (e.g. `PyPRTG_CLA_v1.5.2.exe`) to match the auto-update mechanism — set `name='PyPRTG_CLA_v1.5.2'` in the spec or rename the output.
+   This runs PyInstaller with `PRTG_Analyzer.spec`, copies `apply-update.bat` to the folder root, and creates `dist/PyPRTG_CLA_v{version}.zip` for GitHub release. Upload that zip to the release tag (e.g. `v1.5.4`) so the in-app updater can download it.
 
 Notes
 -----

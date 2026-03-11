@@ -1,4 +1,4 @@
-# PyPRTG_CLA v1.5.2 — User Manual
+# PyPRTG_CLA v1.5.4 — User Manual
 
 > **100% deterministic · 11 hardcoded rules · Runs 100% locally — no data leaves your machine**
 
@@ -90,6 +90,10 @@ There is no installation step. The entire application ships as a single file: `P
 - Click into the console and press `Ctrl + C` to stop the server gracefully.
 
 > **Custom port.** If port 8077 is taken, set the environment variable `PRTG_ANALYZER_PORT` to a different number before launching.
+
+### In-app updates
+
+When a newer version is published on GitHub, the app can update itself. In the web UI header, click **Check for updates**. If an update is available, an overlay appears; click **Update now**. The app downloads the new version, restarts, and opens the new instance. The browser page will reload automatically when the new app is ready, or you can click **Reload page** in the overlay.
 
 ---
 
@@ -456,7 +460,7 @@ Error deduplication replaces variable parts (GUIDs, thread IDs, hex values, long
 
 ### 5. Version-keyed cache invalidation
 
-Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.5.2`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
+Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.5.4`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
 
 ### 6. Comprehensive automated test suite
 
@@ -528,5 +532,5 @@ Click **More info** → **Run anyway**. The binary is unsigned. The full source 
 
 ---
 
-*PyPRTG_CLA v1.5.2 — PRTG Core Log Analyzer*  
+*PyPRTG_CLA v1.5.4 — PRTG Core Log Analyzer*  
 *All analysis is deterministic and based solely on the uploaded `Core.log` file and optional Status Data.*

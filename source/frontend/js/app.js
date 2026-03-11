@@ -353,7 +353,29 @@ async function checkForUpdate(userInitiated = false) {
         }
         overlayMessage.textContent = "Restarting… The app will close and reopen in a moment.";
         overlayTitle.textContent = "Almost done";
-        setTimeout(() => { window.location.reload(); }, 8000);
+        const reloadBtn = document.createElement("button");
+        reloadBtn.type = "button";
+        reloadBtn.className = "update-overlay-btn";
+        reloadBtn.textContent = "Reload page";
+        reloadBtn.style.marginTop = "1rem";
+        reloadBtn.onclick = () => window.location.reload();
+        overlayActions.hidden = false;
+        overlayActions.appendChild(reloadBtn);
+        (function waitForNewApp() {
+          const maxWait = 30000;
+          const start = Date.now();
+          function poll() {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 3000);
+            fetch("/api/update-check", { method: "GET", signal: ctrl.signal })
+              .then(() => { clearTimeout(t); window.location.reload(); })
+              .catch(() => {
+                clearTimeout(t);
+                if (Date.now() - start < maxWait) setTimeout(poll, 2000);
+              });
+          }
+          setTimeout(poll, 6000);
+        })();
       } catch (e) {
         overlayMessage.textContent = `Update error: ${e.message}`;
         overlayActions.hidden = false;
