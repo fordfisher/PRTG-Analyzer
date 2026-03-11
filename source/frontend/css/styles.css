@@ -786,7 +786,100 @@ html, body {
   }
 }
 
-/* Update banner */
+/* Update overlay — centered, impossible to miss */
+.update-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: auto;
+}
+.update-overlay[hidden] {
+  display: none !important;
+}
+.update-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 6, 18, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.update-overlay-card {
+  position: relative;
+  min-width: 320px;
+  max-width: 420px;
+  padding: 28px 32px;
+  border-radius: 16px;
+  border: 2px solid rgba(0, 240, 255, 0.5);
+  background: linear-gradient(165deg, rgba(8, 24, 48, 0.97), rgba(2, 10, 28, 0.98));
+  box-shadow: 0 0 60px rgba(0, 255, 255, 0.25), 0 24px 48px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+.update-overlay-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7df9ff;
+  margin-bottom: 12px;
+  text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+}
+.update-overlay-message {
+  font-size: 1rem;
+  color: #b4c6ff;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+.update-overlay-actions {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.update-overlay-btn {
+  padding: 12px 28px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(90deg, #00f5ff, #00ff9c);
+  color: #020308;
+  cursor: pointer;
+  box-shadow: 0 0 24px rgba(0, 255, 255, 0.5);
+  transition: transform 0.1s, box-shadow 0.2s;
+}
+.update-overlay-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 32px rgba(0, 255, 255, 0.7);
+}
+.update-overlay-btn:disabled {
+  opacity: 0.8;
+  cursor: wait;
+  transform: none;
+}
+.update-overlay-dismiss {
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(30, 41, 59, 0.6);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.update-overlay-dismiss:hover {
+  background: rgba(51, 65, 85, 0.7);
+  color: #e2e8f0;
+}
+.update-overlay-actions[hidden] {
+  display: none !important;
+}
+
+/* Update banner (fallback / legacy) */
 .update-banner {
   display: inline-flex;
   align-items: center;

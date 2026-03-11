@@ -306,47 +306,62 @@ async function checkForUpdate(userInitiated = false) {
     if (!resp.ok) return;
     const info = await resp.json();
 
-    if (info.up_to_date || info.error) {
+    if (info.error) {
+      if (userInitiated) showUpdateStatus("Update check failed (network or server)", 6000);
+      return;
+    }
+    if (info.up_to_date) {
       if (userInitiated) showUpdateStatus("Up to date", 4000);
       return;
     }
 
-    const banner = document.getElementById("update-banner");
-    const bannerText = document.getElementById("update-banner-text");
-    const updateBtn = document.getElementById("update-btn");
-    const dismissBtn = document.getElementById("update-dismiss");
-    if (!banner || !bannerText || !updateBtn) return;
+    const overlay = document.getElementById("update-overlay");
+    const overlayTitle = document.getElementById("update-overlay-title");
+    const overlayMessage = document.getElementById("update-overlay-message");
+    const overlayActions = document.getElementById("update-overlay-actions");
+    const overlayBtn = document.getElementById("update-overlay-btn");
+    const overlayDismiss = document.getElementById("update-overlay-dismiss");
+    if (!overlay || !overlayMessage || !overlayBtn) return;
 
     document.getElementById("update-status").textContent = "";
+    overlayTitle.textContent = "Update available";
+    overlayMessage.textContent = `Version ${info.latest} is ready. Update now to get the latest version.`;
+    overlayActions.hidden = false;
+    overlayBtn.hidden = false;
+    overlayBtn.disabled = false;
+    overlayBtn.textContent = "Update now";
+    overlay.hidden = false;
 
-    bannerText.textContent = `v${info.latest} available`;
-    banner.hidden = false;
+    overlayDismiss?.addEventListener("click", () => {
+      overlay.hidden = true;
+    }, { once: true });
 
-    dismissBtn?.addEventListener("click", () => { banner.hidden = true; });
-
-    updateBtn.addEventListener("click", async () => {
-      if (!confirm(`Update to v${info.latest}?\n\nThe app will restart automatically.`)) return;
-      updateBtn.disabled = true;
-      updateBtn.textContent = "Downloading...";
+    overlayBtn.addEventListener("click", async () => {
+      overlayBtn.disabled = true;
+      overlayMessage.textContent = "Downloading update…";
+      overlayActions.hidden = true;
       try {
         const r = await fetch("/api/apply-update", { method: "POST" });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
-          alert(`Update failed: ${err.detail || r.statusText}`);
-          updateBtn.disabled = false;
-          updateBtn.textContent = "Update now";
+          overlayMessage.textContent = `Update failed: ${err.detail || r.statusText}`;
+          overlayActions.hidden = false;
+          overlayBtn.hidden = false;
+          overlayBtn.disabled = false;
+          overlayBtn.textContent = "Retry";
           return;
         }
-        bannerText.textContent = "Restarting...";
-        updateBtn.hidden = true;
-        if (dismissBtn) dismissBtn.hidden = true;
+        overlayMessage.textContent = "Restarting… The app will close and reopen in a moment.";
+        overlayTitle.textContent = "Almost done";
         setTimeout(() => { window.location.reload(); }, 8000);
       } catch (e) {
-        alert(`Update error: ${e.message}`);
-        updateBtn.disabled = false;
-        updateBtn.textContent = "Update now";
+        overlayMessage.textContent = `Update error: ${e.message}`;
+        overlayActions.hidden = false;
+        overlayBtn.hidden = false;
+        overlayBtn.disabled = false;
+        overlayBtn.textContent = "Retry";
       }
-    });
+    }, { once: true });
   } catch {
     // silently ignore — not critical
   }

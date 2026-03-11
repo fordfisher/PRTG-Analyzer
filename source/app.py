@@ -380,14 +380,19 @@ async def apply_update() -> JSONResponse:
     if not bat_path.exists():
         raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
 
+    # Run batch in its own console so "start" can launch the new EXE; give it time to finish before we exit
+    creationflags = subprocess.CREATE_NEW_PROCESS_GROUP
+    if sys.platform == "win32":
+        creationflags |= getattr(subprocess, "CREATE_NEW_CONSOLE", 0x10)  # 0x10 = CREATE_NEW_CONSOLE
     subprocess.Popen(
         ["cmd.exe", "/C", str(bat_path), str(current_dir)],
         cwd=str(new_dir),
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+        creationflags=creationflags,
         close_fds=True,
     )
 
     import threading
-    threading.Timer(1.5, lambda: os._exit(0)).start()
+    # Batch waits 4+1+2 sec and starts the new EXE; exit after so we don't kill the batch
+    threading.Timer(8.0, lambda: os._exit(0)).start()
 
     return JSONResponse(content={"status": "updating", "new_version": new_ver, "new_dir": str(new_dir)})
