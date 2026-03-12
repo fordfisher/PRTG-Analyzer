@@ -1,4 +1,4 @@
-# PyPRTG_CLA v1.5.4 — User Manual
+# PyPRTG_CLA v1.5.5 — User Manual
 
 > **100% deterministic · 11 hardcoded rules · Runs 100% locally — no data leaves your machine**
 
@@ -253,11 +253,11 @@ License activation and key-validation errors are **explicitly excluded** from al
 
 ### Sensor Refresh Rate Distribution
 
-A vertical bar chart showing how many sensors are set to each scanning interval (30s, 1min, 5min, 1h, …). Labels are shown in human-readable form. Short intervals on many sensors are the primary driver of high scanning load.
+A vertical bar chart showing **exact sensor counts** from the core.log at the chosen time window: how many sensors are set to each scanning interval (30s, 1min, 5min, 1h, …). Labels are shown in human-readable form. Short intervals on many sensors are the primary driver of high scanning load.
 
-### ERP Relative Load by Sensor Type
+### Sensor Count by Type
 
-The **top 20 sensor types** ranked by weighted scanning contribution (`sensor_count × 60 ÷ interval_seconds`). Identifies which sensor technologies disproportionately drive load.
+A horizontal bar chart showing **exact sensor counts** from the core.log at the chosen time window: the **top 20 sensor types** by raw count (summed across impact levels). Values match the numbers reported in the log for that PRTG core (re)start; no weighting or load calculations.
 
 ### Per-probe impact distribution charts
 
@@ -460,7 +460,7 @@ Error deduplication replaces variable parts (GUIDs, thread IDs, hex values, long
 
 ### 5. Version-keyed cache invalidation
 
-Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.5.4`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
+Results are cached on the SHA-256 hash of the file *and* the analyzer version string (`1.5.5`). Upgrading PyPRTG_CLA automatically forces a fresh analysis.
 
 ### 6. Comprehensive automated test suite
 
@@ -532,5 +532,5 @@ Click **More info** → **Run anyway**. The binary is unsigned. The full source 
 
 ---
 
-*PyPRTG_CLA v1.5.4 — PRTG Core Log Analyzer*  
+*PyPRTG_CLA v1.5.5 — PRTG Core Log Analyzer*  
 *All analysis is deterministic and based solely on the uploaded `Core.log` file and optional Status Data.*
