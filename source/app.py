@@ -259,16 +259,57 @@ async def get_result(file_hash: str, timeframe: Optional[str] = Query(None)) -> 
 
 
 @app.get("/api/export/json/{file_hash}")
-async def export_json(file_hash: str, timeframe: Optional[str] = Query(None)) -> JSONResponse:
-    return await get_result(file_hash, timeframe)
+async def export_json(
+    file_hash: str,
+    timeframe: Optional[str] = Query(None),
+    errors_patterns: Optional[str] = Query(None),
+) -> JSONResponse:
+    result = _result_for_timeframe(file_hash, timeframe)
+    if errors_patterns:
+        patterns = [p.strip() for p in str(errors_patterns).split(",") if p.strip()]
+        if patterns and isinstance(result, dict) and isinstance(result.get("core"), dict):
+            core = dict(result["core"])
+            top = core.get("top_errors") or []
+            if isinstance(top, list):
+                core["top_errors"] = [e for e in top if str(e.get("pattern", "")) in patterns]
+            result = dict(result)
+            result["core"] = core
+    return JSONResponse(content=result)
 
 
 @app.get("/api/export/html/{file_hash}", response_class=HTMLResponse)
-async def export_html(file_hash: str, timeframe: Optional[str] = Query(None)) -> HTMLResponse:
+async def export_html(
+    file_hash: str,
+    timeframe: Optional[str] = Query(None),
+    errors_timeframes: Optional[str] = Query(None),
+    errors_patterns: Optional[str] = Query(None),
+    charts: Optional[str] = Query(None),
+    include_findings: Optional[str] = Query(None),
+    findings: Optional[str] = Query(None),
+) -> HTMLResponse:
     from analyzer.report_generator import build_enterprise_html_report
 
     data = _result_for_timeframe(file_hash, timeframe)
-    html = build_enterprise_html_report(data, errors_time_frame=timeframe)
+    patterns = [p.strip() for p in str(errors_patterns).split(",") if p.strip()] if errors_patterns else None
+    if charts is not None:
+        chart_ids = [p.strip() for p in str(charts).split(",") if p.strip()]
+    else:
+        chart_ids = None
+    findings_indices = None
+    if findings is not None:
+        parts = [p.strip() for p in str(findings).split(",") if p.strip()]
+        try:
+            findings_indices = [int(x) for x in parts]
+        except ValueError:
+            findings_indices = []
+    html = build_enterprise_html_report(
+        data,
+        errors_time_frame=errors_timeframes or timeframe,
+        include_error_patterns=patterns,
+        include_charts=chart_ids,
+        include_findings=True,
+        include_finding_indices=findings_indices,
+    )
     return HTMLResponse(html)
 
 

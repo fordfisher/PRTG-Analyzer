@@ -1,5 +1,45 @@
 import { clamp, setHtmlIfChanged } from "./utils.js?v=1.3";
 
+/** Bar color by impact level (reuse app palette). */
+const IMPACT_COLORS = {
+  "Very low": "#22c55e",
+  "Low": "#00ff9c",
+  "Medium": "#eab308",
+  "High": "#ff6b6b",
+  "Very High": "#ef4444",
+};
+
+const IMPACT_ORDER = ["Very low", "Low", "Medium", "High", "Very High"];
+
+/**
+ * Build sensor-type categories and bar data from probe impact_distribution.
+ * Returns { categories: string[], barData: { value, itemStyle }[] } sorted by impact (very low → very high) then by sensor type name.
+ */
+function buildProbeSensorTypeBars(impactDistribution) {
+  const dist = impactDistribution || {};
+  const entries = [];
+  for (const level of IMPACT_ORDER) {
+    const levelData = dist[level];
+    const sensors = levelData?.sensors || {};
+    for (const [sensorType, count] of Object.entries(sensors)) {
+      const n = Number(count) || 0;
+      if (n > 0) entries.push({ name: sensorType, impact: level, value: n });
+    }
+  }
+  entries.sort((a, b) => {
+    const ai = IMPACT_ORDER.indexOf(a.impact);
+    const bi = IMPACT_ORDER.indexOf(b.impact);
+    if (ai !== bi) return ai - bi;
+    return (a.name || "").localeCompare(b.name || "");
+  });
+  const categories = entries.map((e) => e.name);
+  const barData = entries.map((e) => ({
+    value: e.value,
+    itemStyle: { color: IMPACT_COLORS[e.impact] || "#b4c6ff" },
+  }));
+  return { categories, barData };
+}
+
 function chartAvailable(element) {
   return !!(window.echarts && element && element.offsetWidth && element.offsetHeight);
 }
@@ -34,6 +74,15 @@ export class ChartManager {
     return chart;
   }
 
+  /** Dispose chart by id so next getOrCreate returns a fresh instance. Use when data must fully refresh (e.g. sensor-type chart on timeframe change). */
+  disposeChart(id) {
+    const chart = this.instances.get(id);
+    if (chart && !chart.isDisposed?.()) {
+      chart.dispose();
+    }
+    this.instances.delete(id);
+  }
+
   disposeRemoved() {
     for (const [id, chart] of this.instances.entries()) {
       if (!chart || chart.isDisposed?.()) {
@@ -60,15 +109,17 @@ export class ChartManager {
   ensureOverviewLayout() {
     const element = document.getElementById("overview-charts");
     if (!element) return;
+    const exportRow = (id) =>
+      `<div class="chart-export-row"><label><input type="checkbox" class="chart-export-checkbox" data-export-chart-id="${id}" /> Include in report</label></div>`;
     setHtmlIfChanged(
       element,
       `<div class="overview-grid">
-        <div class="chart"><div class="chart-header">Stability Radar</div><div class="chart-subtitle">Combined risk from errors, restarts, startup, threads and load.</div><div id="chart-stability-radar" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">ERP Load Orbit</div><div class="chart-subtitle">Approximate total ERP load versus safe capacity across probes.</div><div id="chart-erp-orbit" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">Memory Utilization</div><div class="chart-subtitle">Physical RAM usage on the PRTG core server.</div><div id="chart-ram-usage" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">Sensor Impact Levels</div><div class="chart-subtitle">Distribution of sensors by performance impact on the system.</div><div id="chart-impact-donut" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">Error Activity Over Time</div><div class="chart-subtitle">Daily error volume based on timeline analysis.</div><div id="chart-error-shockwave" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">ERP Hot Probes</div><div class="chart-subtitle">Top probes by ERP load.</div><div id="chart-erp-hot-probes" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">Stability Radar</div><div class="chart-subtitle">Combined risk from errors, restarts, startup, threads and load.</div>${exportRow("stability-radar")}<div id="chart-stability-radar" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">ERP Load Orbit</div><div class="chart-subtitle">Approximate total ERP load versus safe capacity across probes.</div>${exportRow("erp-orbit")}<div id="chart-erp-orbit" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">Memory Utilization</div><div class="chart-subtitle">Physical RAM usage on the PRTG core server.</div>${exportRow("ram-usage")}<div id="chart-ram-usage" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">Sensor Impact Levels</div><div class="chart-subtitle">Distribution of sensors by performance impact on the system.</div>${exportRow("impact-donut")}<div id="chart-impact-donut" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">Error Activity Over Time</div><div class="chart-subtitle">Daily error volume based on timeline analysis.</div>${exportRow("error-shockwave")}<div id="chart-error-shockwave" class="chart-inner"></div></div>
+        <div class="chart"><div class="chart-header">ERP Hot Probes</div><div class="chart-subtitle">Top probes by ERP load.</div>${exportRow("erp-hot-probes")}<div id="chart-erp-hot-probes" class="chart-inner"></div></div>
       </div>`
     );
   }
@@ -203,60 +254,85 @@ export class ChartManager {
   }
 
   renderSensors(vm) {
-    const { refreshBuckets, erpByType, probeImpactCharts, hiddenProbeCount } = vm;
+    const { refreshBuckets, sensorCountByType, probeImpactCharts, hiddenProbeCount, showProbeDistribution } = vm;
 
-    const intervalsChart = this.getOrCreate("chart-intervals");
+    const intervalsChartEl = document.getElementById("chart-intervals");
+    if (intervalsChartEl) {
+      intervalsChartEl.style.display = showProbeDistribution ? "" : "none";
+    }
+    const intervalsChart = showProbeDistribution ? this.getOrCreate("chart-intervals") : null;
     if (intervalsChart) {
       intervalsChart.setOption({
         backgroundColor: "transparent",
         tooltip: { trigger: "axis" },
         xAxis: { type: "category", data: refreshBuckets.map((bucket) => bucket.interval_label), axisLabel: { color: "#b4c6ff", rotate: 30 } },
-        yAxis: { type: "value", axisLabel: { color: "#b4c6ff" } },
+        yAxis: { type: "value", name: "Sensor count", nameTextStyle: { color: "#9fb5ff" }, axisLabel: { color: "#b4c6ff" } },
         series: [{ type: "bar", data: refreshBuckets.map((bucket) => bucket.count), itemStyle: { color: "#00ff9c" } }],
       });
+      if (typeof intervalsChart.resize === "function") intervalsChart.resize();
     }
 
-    const erpTypesChart = this.getOrCreate("chart-erp-sensor-types");
-    if (erpTypesChart) {
-      erpTypesChart.setOption({
+    // Dispose and recreate so every bar (including bottom/last) updates when timeframe changes (e.g. oracletablespace).
+    this.disposeChart("chart-erp-sensor-types");
+    const sensorTypesContainer = document.getElementById("chart-erp-sensor-types");
+    const sensorTypesChart = this.getOrCreate("chart-erp-sensor-types");
+    if (sensorTypesChart && sensorTypesContainer) {
+      const barCount = (sensorCountByType || []).length;
+      const barHeightPx = 28;
+      const minHeight = 260;
+      const maxHeight = 800;
+      const height = clamp(barCount * barHeightPx, minHeight, maxHeight);
+      sensorTypesContainer.style.minHeight = `${height}px`;
+      sensorTypesChart.setOption({
         backgroundColor: "transparent",
         tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
         grid: { left: 120, right: 20, top: 20, bottom: 40 },
-        xAxis: { type: "value", name: "Relative load", nameTextStyle: { color: "#9fb5ff" }, axisLabel: { color: "#b4c6ff" } },
-        yAxis: { type: "category", data: erpByType.map((entry) => entry.name), axisLabel: { color: "#b4c6ff" } },
-        series: [{ type: "bar", data: erpByType.map((entry) => entry.value), itemStyle: { color: "#ff6b6b" } }],
+        xAxis: { type: "value", name: "Sensor count", nameTextStyle: { color: "#9fb5ff" }, axisLabel: { color: "#b4c6ff" } },
+        yAxis: { type: "category", data: sensorCountByType.map((entry) => entry.name), axisLabel: { color: "#b4c6ff" } },
+        series: [{ type: "bar", data: sensorCountByType.map((entry) => entry.value), itemStyle: { color: "#ff6b6b" } }],
       });
+      sensorTypesChart.resize();
     }
 
     const container = document.getElementById("probe-impact-container");
     if (container) {
-      const markup = `${probeImpactCharts
+      if (!showProbeDistribution) {
+        setHtmlIfChanged(container, "");
+        container.style.display = "none";
+      } else {
+        container.style.display = "";
+        const addAllMarkup =
+          probeImpactCharts.length > 1
+            ? `<div class="probe-charts-export-actions"><button type="button" class="probe-add-all-btn">Add all to report</button></div>`
+            : "";
+        const markup = `${addAllMarkup}${probeImpactCharts
         .map(
           (probe) => `<div class="probe-chart-card">
               <div class="probe-chart-title">${probe.name || ""}</div>
+              <div class="chart-export-row"><label><input type="checkbox" class="chart-export-checkbox" data-export-chart-id="probe-impact-${probe.probe_id}" /> Include in report</label></div>
               <div id="probe-impact-${probe.probe_id}" class="chart probe-impact-chart"></div>
             </div>`
         )
         .join("")}${hiddenProbeCount ? `<div class="tab-message">Showing top 10 probe impact charts. ${hiddenProbeCount} additional probes remain in the table below.</div>` : ""}`;
-      setHtmlIfChanged(container, markup);
+        setHtmlIfChanged(container, markup);
 
-      for (const probe of probeImpactCharts) {
-        const chart = this.getOrCreate(`probe-impact-${probe.probe_id}`);
-        if (!chart) continue;
-        const dist = probe.impact_distribution || {};
-        const levels = ["Very low", "Low", "Medium", "High", "Very High"];
-        chart.setOption({
-          backgroundColor: "transparent",
-          tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
-          grid: { left: 48, right: 16, top: 20, bottom: 32 },
-          xAxis: { type: "category", data: levels, axisLabel: { color: "#b4c6ff" } },
-          yAxis: { type: "value", axisLabel: { color: "#b4c6ff" } },
-          series: [{ type: "bar", data: levels.map((level) => dist[level]?.total || 0), itemStyle: { color: "#00f5ff" } }],
-        });
+        for (const probe of probeImpactCharts) {
+          const chart = this.getOrCreate(`probe-impact-${probe.probe_id}`);
+          if (!chart) continue;
+          const { categories, barData } = buildProbeSensorTypeBars(probe.impact_distribution);
+          chart.setOption({
+            backgroundColor: "transparent",
+            tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+            grid: { left: 72, right: 16, top: 20, bottom: 32 },
+            xAxis: { type: "category", data: categories, axisLabel: { color: "#b4c6ff" } },
+            yAxis: { type: "value", axisLabel: { color: "#b4c6ff" } },
+            series: [{ type: "bar", data: barData }],
+          });
+        }
       }
     }
 
-    toggleTabMessage("tab-sensors", !vm.probes.length && !refreshBuckets.length ? "No probe or interval summary found in this Core.log." : null);
+    toggleTabMessage("tab-sensors", !vm.probes.length && !refreshBuckets.length && !(vm.sensorCountByType && vm.sensorCountByType.length) ? "No probe or interval summary found in this Core.log." : null);
     this.disposeRemoved();
   }
 

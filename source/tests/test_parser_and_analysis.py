@@ -5,6 +5,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 import app as app_module
@@ -29,6 +30,23 @@ def _write_temp_gz_log(text: str, *, encoding: str) -> Path:
     with gzip.open(path, "wt", encoding=encoding) as f:
         f.write(text.strip())
     return path
+
+
+def _sensor_count_by_type_from_core(core: dict) -> list[dict]:
+    """Mirror of frontend buildSensorCountByType: sum sensors by type from global_impact_distribution."""
+    counts: dict[str, int] = {}
+    dist = core.get("global_impact_distribution") or {}
+    for info in dist.values():
+        if not isinstance(info, dict):
+            continue
+        for sensor_type, count in (info.get("sensors") or {}).items():
+            n = int(count) if count is not None else 0
+            if n > 0:
+                counts[sensor_type] = counts.get(sensor_type, 0) + n
+    return sorted(
+        [{"name": k, "value": v} for k, v in counts.items()],
+        key=lambda x: -x["value"],
+    )[:20]
 
 
 _SAMPLE_ANALYSIS_LOG = """
@@ -155,6 +173,91 @@ def test_report_generation_smoke() -> None:
         assert "Example Corp" in html
     finally:
         path.unlink(missing_ok=True)
+
+
+def test_report_can_filter_exported_top_errors_by_pattern() -> None:
+    from analyzer.report_generator import build_enterprise_html_report
+
+    result = {
+        "core": {
+            "server_name": "Example Corp",
+            "top_errors": [
+                {"pattern": "AAA", "rank": 1, "count": 10, "first_seen": "", "last_seen": "", "sample_lines": ["a"]},
+                {"pattern": "BBB", "rank": 2, "count": 9, "first_seen": "", "last_seen": "", "sample_lines": ["b"]},
+            ],
+        },
+        "findings": [],
+        "refresh_rate_distribution": [],
+        "timeline": [],
+        "score": 0,
+    }
+    html = build_enterprise_html_report(result, include_error_patterns=["BBB"])
+    assert "BBB" in html
+    assert "AAA" not in html
+
+
+def test_report_include_charts_parameter() -> None:
+    """Report respects include_charts: only requested chart sections are rendered."""
+    result = {
+        "core": {
+            "server_name": "Test",
+            "global_impact_distribution": {"Low": {"total": 10, "sensors": {"Ping": 5, "HTTP": 5}}},
+            "total_ram_mb": 16384,
+            "free_ram_mb": 8192,
+            "total_probes": 2,
+            "probes": [{"name": "Probe 1", "erp": 100}],
+        },
+        "findings": [],
+        "refresh_rate_distribution": [{"interval_label": "1m", "count": 50}],
+        "timeline": [],
+        "calculated_requests_per_min": 5000,
+        "score": 0,
+    }
+    # Default (include_charts=None): impact-donut and refresh-rate only
+    html_default = build_enterprise_html_report(result)
+    assert "chartImpact" in html_default
+    assert "chartRefresh" in html_default
+    assert "chartSensorTypes" not in html_default
+    # Explicit include_charts: only requested charts
+    html_with_charts = build_enterprise_html_report(
+        result, include_charts=["impact-donut", "sensor-types"]
+    )
+    assert "chartImpact" in html_with_charts
+    assert "chartSensorTypes" in html_with_charts
+    assert "Sensor Type Distribution" in html_with_charts
+    assert "chartRefresh" not in html_with_charts
+
+    # Probe impact charts: include probe-impact-{id} to get per-probe charts in report
+    result_with_probes = {
+        **result,
+        "core": {
+            **result["core"],
+            "probes": [
+                {
+                    "probe_id": 1,
+                    "name": "Local Probe",
+                    "impact_distribution": {"Low": {"total": 5, "sensors": {"Ping": 3, "HTTP": 2}}},
+                },
+            ],
+        },
+    }
+    html_probe = build_enterprise_html_report(
+        result_with_probes, include_charts=["probe-impact-1"]
+    )
+    assert "chartProbeImpact1" in html_probe
+    assert "Probe: Local Probe" in html_probe
+
+    # Findings section: only selected indices are included
+    result_with_findings = {
+        **result,
+        "findings": [{"title": "Test finding", "severity": "yellow", "rule_id": "R1", "score_delta": 0, "recommendation": "Do X", "evidence": []}],
+    }
+    html_with_findings = build_enterprise_html_report(result_with_findings, include_finding_indices=[0])
+    assert "Findings & Recommendations" in html_with_findings
+    assert "Test finding" in html_with_findings
+    html_no_findings = build_enterprise_html_report(result_with_findings, include_finding_indices=[])
+    assert "Findings & Recommendations" not in html_no_findings
+    assert "Test finding" not in html_no_findings
 
 
 # Minimal log lines for CPU splitting, SystemID, and license owner parsing
@@ -473,16 +576,16 @@ def test_apply_timeframe_updates_snapshot_fields_and_distributions() -> None:
         assert previous["core"]["total_sensors"] == 80
         assert previous["core"]["total_probes"] == 1
         assert len(previous["core"]["probes"]) == 1
-        assert previous["core"]["global_impact_distribution"]["Medium"]["total"] == 70
-        assert previous["core"]["global_impact_distribution"]["High"]["total"] == 60
-        assert previous["core"]["global_impact_distribution"]["Very High"]["total"] == 10
-        assert previous["core"]["interval_distribution"][30]["total"] == 40
-        assert previous["core"]["interval_distribution"][60]["total"] == 100
+        # Past 2 restarts uses segment 1: exact core.log data for that restart
+        assert previous["core"]["global_impact_distribution"]["Low"]["total"] == 50
+        assert previous["core"]["global_impact_distribution"]["High"]["total"] == 30
+        assert previous["core"]["interval_distribution"][30]["total"] == 20
+        assert previous["core"]["interval_distribution"][60]["total"] == 60
         assert previous["core"]["cpu_splitting_active"] is False
         assert previous["core"]["max_thread_runtime"] == 90
         assert previous["core"]["errors_since_last_restart"] == 2
-        assert previous["calculated_requests_per_min"] == 180.0
-        assert [bucket["count"] for bucket in previous["refresh_rate_distribution"]] == [40, 100]
+        assert previous["calculated_requests_per_min"] == 100.0
+        assert [bucket["count"] for bucket in previous["refresh_rate_distribution"]] == [20, 60]
         assert previous["core"]["total_errors"] == 2
         assert previous["core"]["total_warnings"] == 1
         assert len(previous["findings"]) >= 1
@@ -490,39 +593,75 @@ def test_apply_timeframe_updates_snapshot_fields_and_distributions() -> None:
         path.unlink(missing_ok=True)
 
 
-def test_apply_timeframe_uses_newest_snapshot_distributions() -> None:
-    """Distributions should reflect the most recent snapshot, not be summed across restarts."""
+def test_apply_timeframe_uses_selected_segment_distributions() -> None:
+    """Interval and sensor-type charts use exact core.log data for the chosen time window (Past N restarts)."""
     path = _write_temp_log(_SAMPLE_TIMEFRAME_SNAPSHOTS_LOG)
     try:
         result = run_analysis(str(path))
 
-        single = apply_timeframe(result, "1")
-        combined = apply_timeframe(result, "2")
+        single = apply_timeframe(result, "1")   # Past 1 restart -> segment 0
+        combined = apply_timeframe(result, "2")  # Past 2 restarts -> segment 1
 
-        seg0_impact = single["core"]["global_impact_distribution"]
-        assert seg0_impact["Medium"]["total"] == 70
-        assert seg0_impact["High"]["total"] == 60
-        assert seg0_impact["Very High"]["total"] == 10
+        # Segment 0: 30s->40, 60s->100; Medium 70, High 60, Very High 10
+        seg0 = single["core"]
+        assert seg0["global_impact_distribution"]["Medium"]["total"] == 70
+        assert seg0["global_impact_distribution"]["High"]["total"] == 60
+        assert seg0["global_impact_distribution"]["Very High"]["total"] == 10
+        assert seg0["interval_distribution"][30]["total"] == 40
+        assert seg0["interval_distribution"][60]["total"] == 100
 
-        comb_impact = combined["core"]["global_impact_distribution"]
-        assert comb_impact["Medium"]["total"] == 70
-        assert comb_impact["High"]["total"] == 60
-        assert comb_impact["Very High"]["total"] == 10
-        assert comb_impact["High"]["sensors"]["snmp"] == 60
+        # Segment 1: 30s->20, 60s->60; Low 50, High 30 (exact from log)
+        comb = combined["core"]
+        assert comb["global_impact_distribution"]["Low"]["total"] == 50
+        assert comb["global_impact_distribution"]["High"]["total"] == 30
+        assert comb["interval_distribution"][30]["total"] == 20
+        assert comb["interval_distribution"][60]["total"] == 60
+        assert combined["refresh_rate_distribution"][0]["count"] == 20
+        assert combined["refresh_rate_distribution"][1]["count"] == 60
+    finally:
+        path.unlink(missing_ok=True)
 
-        seg0_interval = single["core"]["interval_distribution"]
-        assert seg0_interval[30]["total"] == 40
-        assert seg0_interval[60]["total"] == 100
 
-        comb_interval = combined["core"]["interval_distribution"]
-        assert comb_interval[30]["total"] == 40
-        assert comb_interval[30]["sensors"]["ping"] == 40
-        assert comb_interval[60]["total"] == 100
-        assert comb_interval[60]["sensors"]["snmp"] == 60
-        assert comb_interval[60]["sensors"]["http"] == 10
-        assert comb_interval[60]["sensors"]["wmi"] == 30
+def test_segment_snapshots_differ_and_apply_timeframe_returns_distinct_data() -> None:
+    """Multi-restart log produces distinct segment snapshots; apply_timeframe returns different core/refresh per timeframe."""
+    path = _write_temp_log(_SAMPLE_TIMEFRAME_SNAPSHOTS_LOG)
+    try:
+        result = run_analysis(str(path))
+        core = result["core"]
+        snapshots = core.get("segment_snapshots") or []
+        assert len(snapshots) >= 2
 
-        assert combined["calculated_requests_per_min"] == single["calculated_requests_per_min"]
+        # At least two segments must differ (e.g. total_sensors or global_impact_distribution).
+        totals = [s.get("total_sensors") for s in snapshots[:3]]
+        assert len(set(totals)) >= 2 or any(s.get("global_impact_distribution") for s in snapshots[:3])
+
+        tf1 = apply_timeframe(result, "1")
+        tf2 = apply_timeframe(result, "2")
+        assert tf1["core"]["total_sensors"] != tf2["core"]["total_sensors"]
+        r1 = tf1.get("refresh_rate_distribution") or []
+        r2 = tf2.get("refresh_rate_distribution") or []
+        assert [b["count"] for b in r1] != [b["count"] for b in r2]
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def test_slider_timeframe_returns_different_chart_data() -> None:
+    """Slider timeframes yield different data for both charts (green: refresh_rate_distribution, red: sensor count by type)."""
+    path = _write_temp_log(_SAMPLE_TIMEFRAME_SNAPSHOTS_LOG)
+    try:
+        result = run_analysis(str(path))
+        tf1 = apply_timeframe(result, "1")
+        tf2 = apply_timeframe(result, "2")
+
+        # Green chart: refresh_rate_distribution must differ
+        r1 = tf1.get("refresh_rate_distribution") or []
+        r2 = tf2.get("refresh_rate_distribution") or []
+        assert [b["count"] for b in r1] != [b["count"] for b in r2], "refresh_rate_distribution should differ per timeframe"
+
+        # Red chart: sensor count by type (from global_impact_distribution) must differ
+        sensor_by_type_1 = _sensor_count_by_type_from_core(tf1["core"])
+        sensor_by_type_2 = _sensor_count_by_type_from_core(tf2["core"])
+        assert sensor_by_type_1 != sensor_by_type_2, "sensor count by type should differ per timeframe"
     finally:
         path.unlink(missing_ok=True)
 
@@ -662,13 +801,83 @@ def test_api_timeframe_returns_timeframed_snapshot_fields(tmp_path, monkeypatch)
     assert body["core"]["prtg_version"] == "25.1.0"
     assert body["core"]["license_owner"] == "Old Corp"
     assert body["core"]["total_sensors"] == 80
-    assert body["calculated_requests_per_min"] == 180.0
-    assert [bucket["count"] for bucket in body["refresh_rate_distribution"]] == [40, 100]
+    assert body["calculated_requests_per_min"] == 100.0
+    assert [bucket["count"] for bucket in body["refresh_rate_distribution"]] == [20, 60]
 
     export_html = client.get(f"/api/export/html/{file_hash}?timeframe=2")
     assert export_html.status_code == 200
     assert "25.1.0" in export_html.text
     assert "Old Corp" in export_html.text
+
+
+def test_api_slider_timeframe_returns_different_chart_data(tmp_path, monkeypatch) -> None:
+    """API returns different chart data (green + red) for timeframe=1 vs timeframe=2."""
+    monkeypatch.setattr(app_module, "CACHE_DIR", tmp_path)
+    app_module.JOBS.clear()
+    app_module.RESULT_MEMO.clear()
+    client = TestClient(app_module.app)
+
+    response = client.post(
+        "/api/analyze",
+        files={"core_log": ("core.log", _SAMPLE_TIMEFRAME_SNAPSHOTS_LOG.encode("utf-8"), "text/plain")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    job_id = payload["job_id"]
+    file_hash = payload["hash"]
+
+    progress = client.get(f"/api/progress/{job_id}")
+    assert progress.status_code == 200
+    assert '"status": "done"' in progress.text
+
+    r1 = client.get(f"/api/result/{file_hash}?timeframe=1")
+    r2 = client.get(f"/api/result/{file_hash}?timeframe=2")
+    assert r1.status_code == 200 and r2.status_code == 200
+    body1 = r1.json()
+    body2 = r2.json()
+
+    # Green chart: refresh_rate_distribution must differ
+    rr1 = body1.get("refresh_rate_distribution") or []
+    rr2 = body2.get("refresh_rate_distribution") or []
+    assert [b["count"] for b in rr1] != [b["count"] for b in rr2], "refresh_rate_distribution should differ per timeframe"
+
+    # Red chart: sensor count by type must differ
+    sensor_by_type_1 = _sensor_count_by_type_from_core(body1.get("core") or {})
+    sensor_by_type_2 = _sensor_count_by_type_from_core(body2.get("core") or {})
+    assert sensor_by_type_1 != sensor_by_type_2, "sensor count by type should differ per timeframe"
+
+
+def test_slider_chart_data_with_real_core_log() -> None:
+    """With a real multi-segment Core.log from tests folder, slider timeframes yield different chart data."""
+    tests_dir = Path(__file__).resolve().parents[2] / "tests"
+    candidates = ["2960225 Core.log", "2967972 Core.log", "2964866 Core.log", "2 Core.log"]
+    path = None
+    for name in candidates:
+        p = tests_dir / name
+        if p.exists():
+            path = p
+            break
+    if path is None:
+        pytest.skip("No real Core.log found in tests folder")
+        return
+
+    result = run_analysis(str(path))
+    core = result.get("core") or {}
+    snapshots = core.get("segment_snapshots") or []
+    if len(snapshots) < 2:
+        pytest.skip(f"Real log has only {len(snapshots)} segment(s), need >= 2")
+        return
+
+    tf1 = apply_timeframe(result, "1")
+    tf2 = apply_timeframe(result, "2")
+
+    r1 = tf1.get("refresh_rate_distribution") or []
+    r2 = tf2.get("refresh_rate_distribution") or []
+    assert [b["count"] for b in r1] != [b["count"] for b in r2], "refresh_rate_distribution should differ per timeframe"
+
+    sensor_by_type_1 = _sensor_count_by_type_from_core(tf1["core"])
+    sensor_by_type_2 = _sensor_count_by_type_from_core(tf2["core"])
+    assert sensor_by_type_1 != sensor_by_type_2, "sensor count by type should differ per timeframe"
 
 
 def test_api_cache_version_mismatch_recompute(tmp_path, monkeypatch) -> None:

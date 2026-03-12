@@ -267,6 +267,14 @@ html, body {
   font-weight: 600;
 }
 
+.slider-window-start {
+  font-size: 0.95rem;
+  color: #e4f0ff;
+  font-weight: 600;
+  margin: 6px 0 4px 0;
+  letter-spacing: 0.02em;
+}
+
 .timeframe-slider-wrap {
   width: 100%;
 }
@@ -444,6 +452,10 @@ html, body {
   grid-template-columns: 1fr;
 }
 
+#tab-timeline.tab-content.active {
+  grid-template-columns: 1fr;
+}
+
 .chart {
   min-width: 0;
   max-width: 100%;
@@ -452,6 +464,38 @@ html, body {
   border: 1px solid rgba(120, 240, 255, 0.35);
   background: radial-gradient(circle at top left, rgba(0, 255, 255, 0.08), rgba(3, 8, 20, 0.95));
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+}
+
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.export-actions--under-timeframe {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+.export-actions button {
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 8px;
+  background: rgba(0, 200, 255, 0.18);
+  color: #7df9ff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s, transform 0.08s, box-shadow 0.2s;
+}
+
+.export-actions button:hover {
+  background: rgba(0, 200, 255, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(0, 255, 255, 0.25);
 }
 
 .overview-grid {
@@ -488,6 +532,81 @@ html, body {
   flex: 1;
   min-height: 280px;
   padding: 8px 12px 12px;
+}
+
+.chart-export-row {
+  padding: 4px 12px 6px;
+  font-size: 0.75rem;
+  color: #9fb5ff;
+  opacity: 0.9;
+}
+
+.chart-export-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.chart-export-row input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.chart-with-export {
+  margin-bottom: 16px;
+}
+
+.chart-with-export .chart-export-row {
+  margin-bottom: 4px;
+}
+
+.findings-list-single {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 100%;
+}
+
+.finding-card--export {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.finding-export-row {
+  margin-bottom: 4px;
+}
+
+.finding-export-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #9fb5ff;
+}
+
+.finding-export-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.probe-charts-export-actions {
+  margin-bottom: 10px;
+}
+
+.probe-add-all-btn {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 8px;
+  background: rgba(0, 200, 255, 0.18);
+  color: #7df9ff;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.probe-add-all-btn:hover {
+  background: rgba(0, 200, 255, 0.35);
 }
 
 .errors-toolbar {
@@ -557,6 +676,34 @@ html, body {
 }
 
 .errors-copy-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(125, 249, 255, 0.7);
+}
+
+.error-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.error-select-cb {
+  accent-color: #00ff9c;
+}
+
+.error-copy-btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(125, 249, 255, 0.35);
+  background: rgba(0, 0, 0, 0.15);
+  color: #e4f0ff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.error-copy-btn:hover {
   background: rgba(0, 240, 255, 0.15);
   border-color: rgba(125, 249, 255, 0.7);
 }

@@ -24,10 +24,16 @@ export function renderTimeframeSelector(element, vm, state, onChange) {
     return `Past ${val} restart${val > 1 ? "s" : ""}`;
   }
 
+  const chosenIndex = currentValue === "all" ? 0 : Math.max(0, markers.length - numericValue);
+  const chosenMarker = markers[chosenIndex];
+  const chosenDateTime = chosenMarker ? chosenMarker.formatted : "";
+  const chosenLabel = chosenMarker ? `Logger initialized: ${escapeHtml(chosenDateTime)}` : "";
+
   setHtmlIfChanged(
     element,
     `<div class="timeframe-slider-wrap">
        <label class="global-timeframe-label">Time Window: <span class="slider-value-label">${escapeHtml(labelForValue(numericValue))}</span></label>
+       <div class="slider-window-start">${chosenLabel}</div>
        <div class="slider-track-wrap">
          <input type="range" id="global-timeframe-range" class="timeframe-range" min="1" max="${max}" value="${numericValue}" step="1" />
          <div class="slider-markers">${markerDots}</div>
@@ -36,11 +42,20 @@ export function renderTimeframeSelector(element, vm, state, onChange) {
   );
 
   const range = element.querySelector("#global-timeframe-range");
+  const windowStartEl = element.querySelector(".slider-window-start");
   if (!range) return;
+  function updateWindowStartLabel(val) {
+    if (windowStartEl && markers.length) {
+      const idx = val >= max ? 0 : Math.max(0, markers.length - val);
+      const m = markers[idx];
+      windowStartEl.textContent = m ? `Logger initialized: ${m.formatted}` : "";
+    }
+  }
   range.oninput = (e) => {
     const val = parseInt(e.target.value, 10);
     const lbl = element.querySelector(".slider-value-label");
     if (lbl) lbl.textContent = labelForValue(val);
+    updateWindowStartLabel(val);
   };
   range.onchange = (e) => {
     const val = parseInt(e.target.value, 10);
@@ -152,16 +167,24 @@ export function renderMetrics(element, vm) {
   setHtmlIfChanged(element, html);
 }
 
-export function renderFindings(element, vm) {
+export function renderFindings(element, vm, state) {
   if (!element) return;
-  const cards = (vm.result.findings || [])
-    .map((finding) => {
+  const findings = vm.result.findings || [];
+  const selectedSet = new Set(Array.isArray(state?.exportSelectedFindings) ? state.exportSelectedFindings : []);
+  const cards = findings
+    .map((finding, index) => {
       const sev = String(finding.severity || "info").toLowerCase();
       const color = sev === "red" ? "#ff4d6d" : sev === "yellow" ? "#ffd166" : sev === "green" ? "#00ff9c" : "#7df9ff";
       const evidence = (finding.evidence || [])
         .map((item) => `<div class="muted-text"><small>${escapeHtml(item.label)}:</small> ${escapeHtml(item.value)}</div>`)
         .join("");
-      return `<div class="finding-card">
+      const checked = selectedSet.has(index) ? " checked" : "";
+      return `<div class="finding-card finding-card--export">
+        <div class="finding-export-row">
+          <label class="finding-export-label">
+            <input type="checkbox" class="finding-export-checkbox" data-export-finding-index="${index}"${checked} /> Include in report
+          </label>
+        </div>
         <div class="split-row">
           <div style="font-weight:700;color:${color}">${escapeHtml(finding.title)}</div>
           <div class="muted-text"><small>${escapeHtml(finding.rule_id)} · ${escapeHtml(finding.score_delta)}</small></div>
@@ -172,7 +195,7 @@ export function renderFindings(element, vm) {
     })
     .join("");
 
-  setHtmlIfChanged(element, `<div class="section-stack">${cards || "<div>No findings.</div>"}</div>`);
+  setHtmlIfChanged(element, `<div class="findings-list-single">${cards || "<div>No findings.</div>"}</div>`);
 }
 
 export function renderErrors(toolbarElement, listElement, vm, state, onCountChange) {
@@ -182,19 +205,29 @@ export function renderErrors(toolbarElement, listElement, vm, state, onCountChan
     `<div class="errors-toolbar-label">Show</div>
      <button type="button" id="errors-btn-5" class="errors-toggle-btn">Top 5</button>
      <button type="button" id="errors-btn-10" class="errors-toggle-btn">Top 10</button>
-     <span id="errors-count-label" class="errors-count-label">${escapeHtml(vm.errorCountLabel)}</span>
-     <button type="button" id="errors-copy-btn" class="errors-copy-btn">Copy</button>`
+     <span id="errors-count-label" class="errors-count-label">${escapeHtml(vm.errorCountLabel)}</span>`
   );
 
+  const selectedPatterns = Array.isArray(state.exportSelectedErrorPatterns)
+    ? state.exportSelectedErrorPatterns
+    : [];
   const cards = vm.visibleErrors
     .map((entry) => {
       const samples = (entry.sample_lines || [])
         .map((line) => `<div class="mono-block">${escapeHtml(line)}</div>`)
         .join("");
+      const patternKey = String(entry.pattern || "");
+      const checked = selectedPatterns.includes(patternKey) ? "checked" : "";
       return `<div class="error-card">
         <div class="split-row">
-          <div style="font-weight:700;color:#ff4d6d">#${escapeHtml(entry.rank)} · ${escapeHtml(entry.count)}x</div>
+          <div class="error-card-left">
+            <label class="error-select">
+              <input type="checkbox" class="error-select-cb" data-pattern="${escapeHtml(patternKey)}" ${checked} />
+              <span style="font-weight:700;color:#ff4d6d">#${escapeHtml(entry.rank)} · ${escapeHtml(entry.count)}x</span>
+            </label>
+          </div>
           <div class="muted-text"><small>${escapeHtml(entry.first_seen)} -> ${escapeHtml(entry.last_seen)}</small></div>
+          <button type="button" class="error-copy-btn" data-pattern="${escapeHtml(patternKey)}">Copy</button>
         </div>
         <div>${escapeHtml(entry.pattern)}</div>
         <div class="section-stack compact-gap">${samples}</div>
@@ -207,7 +240,8 @@ export function renderErrors(toolbarElement, listElement, vm, state, onCountChan
   const buttonFive = toolbarElement.querySelector("#errors-btn-5");
   const buttonTen = toolbarElement.querySelector("#errors-btn-10");
   const label = toolbarElement.querySelector("#errors-count-label");
-  const copyButton = toolbarElement.querySelector("#errors-copy-btn");
+  const selectCbs = Array.from(listElement.querySelectorAll(".error-select-cb"));
+  const copyButtons = Array.from(listElement.querySelectorAll(".error-copy-btn"));
 
   if (buttonFive) {
     buttonFive.classList.toggle("active", state.showTopErrorsCount === 5);
@@ -220,19 +254,33 @@ export function renderErrors(toolbarElement, listElement, vm, state, onCountChan
   if (label) {
     label.textContent = vm.errorCountLabel;
   }
-  if (copyButton) {
-    copyButton.onclick = async () => {
-      const text = vm.visibleErrors.length
-        ? vm.visibleErrors
-            .map((entry) => `#${entry.rank} · ${entry.count}x (${entry.first_seen} -> ${entry.last_seen})\n${entry.pattern}`)
-            .join("\n\n")
-        : "No errors.";
+
+  for (const cb of selectCbs) {
+    cb.onchange = () => {
+      const pattern = String(cb.dataset.pattern || "");
+      const current = Array.isArray(state.exportSelectedErrorPatterns) ? state.exportSelectedErrorPatterns.slice() : [];
+      const has = current.includes(pattern);
+      const next = cb.checked
+        ? (has ? current : current.concat([pattern]))
+        : current.filter((p) => p !== pattern);
+      state.exportSelectedErrorPatterns = next;
+    };
+  }
+
+  for (const btn of copyButtons) {
+    btn.onclick = async () => {
+      const pattern = String(btn.dataset.pattern || "");
+      const entry = (vm.visibleErrors || []).find((e) => String(e.pattern || "") === pattern);
+      const text = entry
+        ? `#${entry.rank} · ${entry.count}x (${entry.first_seen} -> ${entry.last_seen})\n${entry.pattern}`
+        : "No error.";
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
-        copyButton.textContent = "Copied!";
+        const prev = btn.textContent;
+        btn.textContent = "Copied!";
         window.setTimeout(() => {
-          copyButton.textContent = "Copy";
-        }, 1200);
+          btn.textContent = prev || "Copy";
+        }, 900);
       }
     };
   }
@@ -270,6 +318,12 @@ export function renderSystemInfo(element, vm) {
 
 export function renderSensorsTable(element, vm) {
   if (!element) return;
+  if (!vm.showProbeDistribution) {
+    setHtmlIfChanged(element, "");
+    element.style.display = "none";
+    return;
+  }
+  element.style.display = "";
   const rows = vm.probesBySensorCount
     .map((probe) => {
       const erp = probe.erp != null ? Number(probe.erp).toFixed(3) : "—";

@@ -64,24 +64,437 @@ def _cpu_splitting_report_html(core: Dict[str, Any]) -> str:
             "Disable CPU splitting when using more than 8 CPUs; ensure all active cores are on the same physical socket.</div></div>"
         )
     return f'<div class="kv"><div class="k">CPU splitting</div><div>{_html_escape(status)}</div></div>{rec}'
-def build_enterprise_html_report(result: Dict[str, Any], errors_time_frame: Optional[str] = None) -> str:
+def _parse_errors_timeframes(errors_time_frame: Optional[str]) -> list[str]:
+    if not errors_time_frame:
+        return []
+    raw = str(errors_time_frame).strip()
+    if not raw:
+        return []
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    # Normalize and dedupe while preserving order
+    out: list[str] = []
+    for p in parts:
+        if p not in out:
+            out.append(p)
+    return out
+
+
+def _filter_top_errors_by_patterns(top_errors: list[Dict[str, Any]], include_error_patterns: Optional[list[str]]) -> list[Dict[str, Any]]:
+    if not include_error_patterns:
+        return top_errors
+    wanted = {str(p) for p in include_error_patterns if str(p).strip()}
+    if not wanted:
+        return top_errors
+    return [e for e in top_errors if str(e.get("pattern", "")) in wanted]
+
+
+def _errors_title_for_timeframe(tf: str) -> str:
+    if tf == "all":
+        return "Top Errors (All)"
+    if tf.isdigit():
+        n = int(tf)
+        return f"Top Errors (Past {n} restart{'s' if n > 1 else ''})"
+    return "Top Errors (evidence)"
+
+
+# Chart id -> (title, div_id) for report cards
+_REPORT_CHART_META: Dict[str, tuple[str, str]] = {
+    "impact-donut": ("Global Impact Distribution", "chartImpact"),
+    "refresh-rate": ("Refresh Rate Distribution", "chartRefresh"),
+    "stability-radar": ("Stability Radar", "chartStabilityRadar"),
+    "erp-orbit": ("ERP Load Orbit", "chartErpOrbit"),
+    "ram-usage": ("Memory Utilization", "chartRamUsage"),
+    "error-shockwave": ("Error Activity Over Time", "chartErrorShockwave"),
+    "erp-hot-probes": ("ERP Hot Probes", "chartErpHotProbes"),
+    "intervals": ("Refresh Intervals", "chartIntervals"),
+    "sensor-types": ("Sensor Type Distribution", "chartSensorTypes"),
+    "timeline": ("Timeline", "chartTimeline"),
+}
+
+
+def _build_charts_grid_html(want_charts: set[str], core: Dict[str, Any]) -> str:
+    parts = []
+    probes_by_id = {int(p.get("probe_id", -1)): p for p in (core.get("probes") or []) if p and p.get("probe_id") is not None}
+    # Static charts in stable order, then probe-impact charts sorted by probe_id
+    static_order = list(_REPORT_CHART_META.keys())
+    for cid in static_order:
+        if cid not in want_charts:
+            continue
+        meta = _REPORT_CHART_META.get(cid)
+        if not meta:
+            continue
+        title, div_id = meta
+        parts.append(
+            f'<div class="card" style="grid-column:span 6">'
+            f"<h2>{_html_escape(title)}</h2>"
+            f'<div id="{_html_escape(div_id)}" class="chart"></div>'
+            f"</div>"
+        )
+    probe_ids = []
+    for cid in want_charts:
+        if not cid.startswith("probe-impact-"):
+            continue
+        try:
+            probe_id = int(cid.replace("probe-impact-", "", 1))
+            if probe_id in probes_by_id:
+                probe_ids.append(probe_id)
+        except ValueError:
+            pass
+    for probe_id in sorted(probe_ids):
+        probe = probes_by_id[probe_id]
+        title = f"Probe: {probe.get('name') or ('Probe ' + str(probe_id))}"
+        div_id = f"chartProbeImpact{probe_id}"
+        parts.append(
+            f'<div class="card" style="grid-column:span 6">'
+            f"<h2>{_html_escape(title)}</h2>"
+            f'<div id="{_html_escape(div_id)}" class="chart"></div>'
+            f"</div>"
+        )
+    return "\n      ".join(parts) if parts else ""
+
+
+def _build_charts_script(want_charts: set[str]) -> str:
+    """Return JavaScript that inits only the requested charts. Uses RESULT, core, rr, etc."""
+    blocks = []
+    core_js = "const core = RESULT.core || {};"
+    rr_js = "const rr = RESULT.refresh_rate_distribution || [];"
+    if "impact-donut" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartImpact');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const dist = core.global_impact_distribution || {};
+      const data = Object.keys(dist).map(k => ({ name: k, value: (dist[k] && dist[k].total) ? dist[k].total : 0 }));
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item' },
+        legend: { textStyle: { color: '#b4c6ff' } },
+        series: [{ type: 'pie', radius: ['45%','70%'], label: { color: '#e4f0ff' }, data }]
+      });
+    })();"""
+        )
+    if "refresh-rate" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartRefresh');
+      if (!el) return;
+      const chart = echarts.init(el);
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: rr.map(b => b.interval_label), axisLabel: { color: '#b4c6ff', rotate: 25 } },
+        yAxis: { type: 'value', axisLabel: { color: '#b4c6ff' } },
+        series: [{ type: 'bar', data: rr.map(b => b.count), itemStyle: { color: '#00ff9c' } }]
+      });
+    })();"""
+        )
+    if "stability-radar" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartStabilityRadar');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const clamp = (x, a, b) => Math.max(a, Math.min(b, Number(x) || 0));
+      const values = [
+        clamp((Number(core.total_errors || 0) + Number(core.total_warnings || 0)) / 10, 0, 100),
+        clamp(Number(core.total_restarts || 0) * 10, 0, 100),
+        clamp((Number(core.startup_duration_sec || 0) / 60) * 20, 0, 100),
+        clamp((Number(core.max_thread_runtime || 0) / 60) * 10, 0, 100),
+        clamp(Number(RESULT.calculated_requests_per_min || 0) / 150, 0, 100)
+      ];
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item' },
+        radar: {
+          indicator: [
+            { name: 'Errors', max: 100 },
+            { name: 'Restarts', max: 100 },
+            { name: 'Startup', max: 100 },
+            { name: 'Threads', max: 100 },
+            { name: 'Load', max: 100 }
+          ],
+          splitArea: { areaStyle: { color: ['rgba(8,20,40,0.9)', 'rgba(5,17,35,0.9)'] } },
+          axisName: { color: '#b4c6ff' }
+        },
+        series: [{ type: 'radar', areaStyle: { opacity: 0.35 }, lineStyle: { color: '#22c55e' }, itemStyle: { color: '#22c55e' }, data: [{ value: values, name: 'Risk' }] }]
+      });
+    })();"""
+        )
+    if "erp-orbit" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartErpOrbit');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const rpm = Number(RESULT.calculated_requests_per_min || 0);
+      const safeTotal = (Number(core.total_probes || 0) || 1) * 10000;
+      const loadPct = Math.max(0, Math.min(200, safeTotal > 0 ? (rpm * 100) / safeTotal : 0));
+      const color = loadPct > 150 ? '#ef4444' : loadPct > 100 ? '#eab308' : '#22c55e';
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { formatter: () => 'Load: ' + rpm.toFixed(0) + ' req/min' },
+        series: [{
+          type: 'gauge',
+          startAngle: 200, endAngle: -20, min: 0, max: 200,
+          axisLine: { lineStyle: { width: 10, color: [[1, 'rgba(34,197,94,0.4)']] } },
+          progress: { show: true, width: 10, itemStyle: { color } },
+          pointer: { show: false },
+          axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
+          detail: { formatter: () => loadPct.toFixed(0) + '% load', color: '#e4f0ff', fontSize: 16 },
+          data: [{ value: loadPct }]
+        }]
+      });
+    })();"""
+        )
+    if "ram-usage" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartRamUsage');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const total = Number(core.total_ram_mb || 0);
+      const free = Number(core.free_ram_mb || 0);
+      const usedPct = total > 0 ? Math.max(0, Math.min(100, ((total - free) * 100) / total)) : 0;
+      const color = usedPct > 90 ? '#ef4444' : usedPct > 75 ? '#eab308' : '#22c55e';
+      chart.setOption({
+        backgroundColor: 'transparent',
+        series: [{
+          type: 'gauge',
+          startAngle: 210, endAngle: -30, min: 0, max: 100,
+          axisLine: { lineStyle: { width: 8, color: [[1, 'rgba(15,23,42,0.9)']] } },
+          progress: { show: true, width: 8, itemStyle: { color } },
+          pointer: { show: false },
+          axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false },
+          detail: { formatter: () => usedPct.toFixed(0) + '% used', color: '#e4f0ff', fontSize: 14 },
+          data: [{ value: usedPct }]
+        }]
+      });
+    })();"""
+        )
+    if "error-shockwave" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartErrorShockwave');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const timeline = RESULT.timeline || [];
+      const buckets = {};
+      timeline.forEach(function(p) {
+        if (p && p.timestamp && p.kind === 'error') {
+          const day = String(p.timestamp).slice(0, 10);
+          buckets[day] = (buckets[day] || 0) + 1;
+        }
+      });
+      const entries = Object.entries(buckets).sort(function(a, b) { return a[0] < b[0] ? -1 : 1; });
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: entries.map(function(e) { return e[0]; }), axisLabel: { color: '#b4c6ff' } },
+        yAxis: { type: 'value', axisLabel: { color: '#b4c6ff' } },
+        series: [{ type: 'line', data: entries.map(function(e) { return e[1]; }), smooth: true, showSymbol: false, lineStyle: { color: '#22c55e' }, areaStyle: { opacity: 0.15, color: '#22c55e' } }]
+      });
+    })();"""
+        )
+    if "erp-hot-probes" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartErpHotProbes');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const probes = (RESULT.probes_by_erp || []).slice(0, 8);
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: 120, right: 16, top: 20, bottom: 32 },
+        xAxis: { type: 'value', axisLabel: { color: '#b4c6ff' } },
+        yAxis: { type: 'category', data: probes.map(function(p) { return p.name || ''; }), axisLabel: { color: '#b4c6ff' } },
+        series: [{ type: 'bar', data: probes.map(function(p) { return Number(p.erp || 0); }), itemStyle: { color: '#3b82f6' } }]
+      });
+    })();"""
+        )
+    if "intervals" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartIntervals');
+      if (!el) return;
+      const chart = echarts.init(el);
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis' },
+        xAxis: { type: 'category', data: rr.map(function(b) { return b.interval_label; }), axisLabel: { color: '#b4c6ff', rotate: 30 } },
+        yAxis: { type: 'value', name: 'Sensor count', nameTextStyle: { color: '#9fb5ff' }, axisLabel: { color: '#b4c6ff' } },
+        series: [{ type: 'bar', data: rr.map(function(b) { return b.count; }), itemStyle: { color: '#00ff9c' } }]
+      });
+    })();"""
+        )
+    if "sensor-types" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartSensorTypes');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const st = RESULT.sensor_type_distribution || [];
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        grid: { left: 120, right: 20, top: 20, bottom: 40 },
+        xAxis: { type: 'value', name: 'Sensor count', nameTextStyle: { color: '#9fb5ff' }, axisLabel: { color: '#b4c6ff' } },
+        yAxis: { type: 'category', data: st.map(function(e) { return e.name; }), axisLabel: { color: '#b4c6ff' } },
+        series: [{ type: 'bar', data: st.map(function(e) { return e.value; }), itemStyle: { color: '#ff6b6b' } }]
+      });
+    })();"""
+        )
+    if "timeline" in want_charts:
+        blocks.append(
+            """
+    (() => {
+      const el = document.getElementById('chartTimeline');
+      if (!el) return;
+      const chart = echarts.init(el);
+      const timeline = RESULT.timeline || [];
+      const points = timeline.filter(function(p) { return p && p.timestamp; }).map(function(p) {
+        return [p.timestamp, p.kind === 'restart' ? 1 : 0, p.label || ''];
+      });
+      chart.setOption({
+        backgroundColor: 'transparent',
+        tooltip: { trigger: 'item', formatter: function(params) { return params.value[0] + '<br/>' + params.value[2]; } },
+        xAxis: { type: 'time', axisLabel: { color: '#b4c6ff' } },
+        yAxis: { type: 'value', min: -0.5, max: 1.5, axisLabel: { show: false }, splitLine: { show: false } },
+        series: [{ type: 'scatter', symbolSize: 10, data: points, itemStyle: { color: '#7df9ff' } }]
+      });
+    })();"""
+        )
+    probe_impact_ids = []
+    for cid in want_charts:
+        if cid.startswith("probe-impact-"):
+            try:
+                probe_impact_ids.append(int(cid.replace("probe-impact-", "", 1)))
+            except ValueError:
+                pass
+    if probe_impact_ids:
+        probe_impact_ids = sorted(probe_impact_ids)
+        blocks.append(
+            """
+    (function() {
+      var probeImpactIds = """
+            + json.dumps(probe_impact_ids)
+            + """;
+      var IMPACT_ORDER = ['Very low', 'Low', 'Medium', 'High', 'Very High'];
+      var IMPACT_COLORS = { 'Very low': '#22c55e', 'Low': '#00ff9c', 'Medium': '#eab308', 'High': '#ff6b6b', 'Very High': '#ef4444' };
+      function buildProbeBars(dist) {
+        var entries = [];
+        IMPACT_ORDER.forEach(function(level) {
+          var levelData = dist[level] || {};
+          var sensors = levelData.sensors || {};
+          Object.keys(sensors).forEach(function(sensorType) {
+            var n = Number(sensors[sensorType]) || 0;
+            if (n > 0) entries.push({ name: sensorType, impact: level, value: n });
+          });
+        });
+        entries.sort(function(a, b) {
+          var ai = IMPACT_ORDER.indexOf(a.impact);
+          var bi = IMPACT_ORDER.indexOf(b.impact);
+          if (ai !== bi) return ai - bi;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        var categories = entries.map(function(e) { return e.name; });
+        var barData = entries.map(function(e) { return { value: e.value, itemStyle: { color: IMPACT_COLORS[e.impact] || '#b4c6ff' } }; });
+        return { categories: categories, barData: barData };
+      }
+      var probes = (RESULT.core && RESULT.core.probes) || [];
+      probeImpactIds.forEach(function(probeId) {
+        var el = document.getElementById('chartProbeImpact' + probeId);
+        if (!el) return;
+        var probe = probes.find(function(p) { return Number(p.probe_id) === probeId; });
+        if (!probe) return;
+        var out = buildProbeBars(probe.impact_distribution || {});
+        var chart = echarts.init(el);
+        chart.setOption({
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+          grid: { left: 72, right: 16, top: 20, bottom: 32 },
+          xAxis: { type: 'category', data: out.categories, axisLabel: { color: '#b4c6ff' } },
+          yAxis: { type: 'value', axisLabel: { color: '#b4c6ff' } },
+          series: [{ type: 'bar', data: out.barData }]
+        });
+      });
+    })();"""
+        )
+    return (core_js + "\n    " + rr_js + "\n    " + "\n    ".join(blocks)).strip()
+
+
+def _sensor_type_distribution_from_core(core: Dict[str, Any]) -> list[Dict[str, Any]]:
+    """Build [{ name, value }] from core.global_impact_distribution for report sensor-types chart."""
+    counts: Dict[str, int] = {}
+    for info in (core.get("global_impact_distribution") or {}).values():
+        if not isinstance(info, dict):
+            continue
+        for sensor_type, count in (info.get("sensors") or {}).items():
+            n = int(count) if count is not None else 0
+            if n > 0:
+                counts[sensor_type] = counts.get(sensor_type, 0) + n
+    return sorted(
+        [{"name": k, "value": v} for k, v in counts.items()],
+        key=lambda x: -x["value"],
+    )[:20]
+
+
+def build_enterprise_html_report(
+    result: Dict[str, Any],
+    errors_time_frame: Optional[str] = None,
+    include_error_patterns: Optional[list[str]] = None,
+    include_charts: Optional[list[str]] = None,
+    include_findings: bool = True,
+    include_finding_indices: Optional[list[int]] = None,
+) -> str:
     core = result.get("core", {}) or {}
-    findings = result.get("findings", []) or []
-    if errors_time_frame:
-        top_errors = aggregate_top_errors_for_timeframe(core, errors_time_frame)
+    all_findings = result.get("findings", []) or []
+    if include_finding_indices is not None:
+        findings = [all_findings[i] for i in include_finding_indices if 0 <= i < len(all_findings)]
     else:
+        findings = all_findings
+    tfs = _parse_errors_timeframes(errors_time_frame)
+    if not tfs:
+        # Backward compatible default: "All" (or evidence fallback from core.top_errors)
         top_errors = (core.get("top_errors") or [])[:10]
-    if not top_errors:
-        top_errors = []
-    if errors_time_frame == "all" or not errors_time_frame:
-        errors_card_title = "Top Errors (All)"
-    elif errors_time_frame and errors_time_frame.isdigit():
-        n = int(errors_time_frame)
-        errors_card_title = f"Top Errors (Past {n} restart{'s' if n > 1 else ''})"
+        top_errors = _filter_top_errors_by_patterns(top_errors, include_error_patterns)
+        errors_sections_html = f"""
+      <div class="card" style="grid-column:span 12">
+        <h2>Top Errors (All)</h2>
+        {''.join(_error_html(e) for e in top_errors) if top_errors else '<div class="finding">No errors parsed.</div>'}
+      </div>
+"""
     else:
-        errors_card_title = "Top Errors (evidence)"
+        sections = []
+        for tf in tfs:
+            top_errors = aggregate_top_errors_for_timeframe(core, tf)
+            top_errors = _filter_top_errors_by_patterns(top_errors, include_error_patterns)
+            title = _errors_title_for_timeframe(tf)
+            sections.append(
+                f"""
+      <div class="card" style="grid-column:span 12">
+        <h2>{_html_escape(title)}</h2>
+        {''.join(_error_html(e) for e in top_errors) if top_errors else '<div class="finding">No errors in this tier.</div>'}
+      </div>
+"""
+            )
+        errors_sections_html = "".join(sections)
     rr = result.get("refresh_rate_distribution", []) or []
     timeline = result.get("timeline", []) or []
+
+    # Charts to include: default = only impact-donut and refresh-rate (backward compatible)
+    chart_ids = include_charts if include_charts is not None else ["impact-donut", "refresh-rate"]
+    want_charts = set(chart_ids)
 
     # redact license key in report payload
     if isinstance(core, dict) and "license_key" in core:
@@ -90,13 +503,37 @@ def build_enterprise_html_report(result: Dict[str, Any], errors_time_frame: Opti
         result = dict(result)
         result["core"] = core
 
-    payload_json = json.dumps(
-        {
-            "core": {"global_impact_distribution": core.get("global_impact_distribution", {})},
-            "refresh_rate_distribution": rr,
-        },
-        ensure_ascii=False,
-    )
+    payload: Dict[str, Any] = {
+        "core": {"global_impact_distribution": core.get("global_impact_distribution", {})},
+        "refresh_rate_distribution": rr,
+    }
+    if include_charts is not None:
+        payload["core"] = dict(core)
+        payload["timeline"] = timeline
+        payload["calculated_requests_per_min"] = result.get("calculated_requests_per_min")
+        payload["sensor_type_distribution"] = _sensor_type_distribution_from_core(core)
+        payload["probes_by_erp"] = sorted(
+            [
+                {"name": p.get("name", ""), "erp": p.get("erp", 0)}
+                for p in (core.get("probes") or [])
+                if p and p.get("erp") is not None
+            ],
+            key=lambda x: -(x.get("erp") or 0),
+        )
+    payload_json = json.dumps(payload, ensure_ascii=False)
+
+    charts_grid_html = _build_charts_grid_html(want_charts, core)
+    charts_script = _build_charts_script(want_charts)
+
+    findings_section_html = ""
+    if findings:
+        findings_section_html = f"""
+      <div class="card" style="grid-column:span 12">
+        <h2>Findings & Recommendations</h2>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {''.join(_finding_html(f) for f in findings)}
+        </div>
+      </div>"""
 
     title = f"PyPRTG_CLA Enterprise Report — {core.get('server_name') or 'Unknown'}"
 
@@ -125,6 +562,23 @@ def build_enterprise_html_report(result: Dict[str, Any], errors_time_frame: Opti
     .sev-green{{border-color:rgba(0,255,156,.35);}}
     pre{{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);padding:10px;border-radius:12px;border:1px solid rgba(125,249,255,.15);}}
     @media (max-width: 900px){{.card{{grid-column:span 12;}}}}
+
+    /* Print/PDF export */
+    @page {{ size: A4; margin: 12mm; }}
+    @media print {{
+      html,body{{ background:#fff !important; color:#000 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }}
+      .wrap{{ max-width:none; margin:0; padding:0; }}
+      .hero{{ background:#fff !important; box-shadow:none !important; border-color:#bbb !important; }}
+      h1{{ color:#000 !important; }}
+      .card{{ background:#fff !important; border-color:#cfcfcf !important; box-shadow:none !important; break-inside:avoid; page-break-inside:avoid; }}
+      .card h2{{ color:#000 !important; }}
+      .finding{{ background:#fff !important; border-color:#cfcfcf !important; break-inside:avoid; page-break-inside:avoid; }}
+      .sev-red{{ border-color:#d11a2a !important; }}
+      .sev-yellow{{ border-color:#b97800 !important; }}
+      .sev-green{{ border-color:#1a7f37 !important; }}
+      .chart{{ border-color:#cfcfcf !important; background:#fff !important; break-inside:avoid; page-break-inside:avoid; }}
+      pre{{ background:#f6f6f6 !important; border-color:#dedede !important; }}
+    }}
   </style>
 </head>
 <body>
@@ -160,58 +614,15 @@ def build_enterprise_html_report(result: Dict[str, Any], errors_time_frame: Opti
     </div>
 
     <div class="grid" style="margin-top:14px">
-      <div class="card" style="grid-column:span 6">
-        <h2>Global Impact Distribution</h2>
-        <div id="chartImpact" class="chart"></div>
-      </div>
-      <div class="card" style="grid-column:span 6">
-        <h2>Refresh Rate Distribution</h2>
-        <div id="chartRefresh" class="chart"></div>
-      </div>
-      <div class="card" style="grid-column:span 12">
-        <h2>Findings & Recommendations</h2>
-        <div style="display:grid;gap:10px">
-          {''.join(_finding_html(f) for f in findings) if findings else '<div class="finding">No findings produced.</div>'}
-        </div>
-      </div>
-      <div class="card" style="grid-column:span 12">
-        <h2>{_html_escape(errors_card_title)}</h2>
-        {''.join(_error_html(e) for e in top_errors) if top_errors else '<div class="finding">No errors parsed.</div>'}
-      </div>
+      {charts_grid_html}
+      {findings_section_html}
+      {errors_sections_html}
     </div>
   </div>
 
   <script>
     const RESULT = {payload_json};
-    const core = RESULT.core || {{}};
-
-    // Impact donut
-    (() => {{
-      const el = document.getElementById('chartImpact');
-      const chart = echarts.init(el);
-      const dist = core.global_impact_distribution || {{}};
-      const data = Object.keys(dist).map(k => ({{ name: k, value: (dist[k] && dist[k].total) ? dist[k].total : 0 }}));
-      chart.setOption({{
-        backgroundColor: 'transparent',
-        tooltip: {{ trigger: 'item' }},
-        legend: {{ textStyle: {{ color: '#b4c6ff' }} }},
-        series: [{{ type: 'pie', radius: ['45%','70%'], label: {{ color: '#e4f0ff' }}, data }}]
-      }});
-    }})();
-
-    // Refresh rate bar
-    (() => {{
-      const el = document.getElementById('chartRefresh');
-      const chart = echarts.init(el);
-      const rr = RESULT.refresh_rate_distribution || [];
-      chart.setOption({{
-        backgroundColor: 'transparent',
-        tooltip: {{ trigger: 'axis' }},
-        xAxis: {{ type: 'category', data: rr.map(b => b.interval_label), axisLabel: {{ color: '#b4c6ff', rotate: 25 }} }},
-        yAxis: {{ type: 'value', axisLabel: {{ color: '#b4c6ff' }} }},
-        series: [{{ type: 'bar', data: rr.map(b => b.count), itemStyle: {{ color: '#00ff9c' }} }}]
-      }});
-    }})();
+    {charts_script}
   </script>
 </body>
 </html>

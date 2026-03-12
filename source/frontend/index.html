@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <link rel="stylesheet" href="/static/css/styles.css?v=1.5.5" />
+  <link rel="stylesheet" href="/static/css/styles.css?v=1.5.6" />
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"></script>
 </head>
@@ -83,14 +83,23 @@
           </div>
         </section>
         <section class="tab-content" id="tab-sensors">
-          <div id="chart-intervals" class="chart"></div>
-          <div id="chart-erp-sensor-types" class="chart"></div>
+          <div class="chart-with-export">
+            <div class="chart-export-row"><label><input type="checkbox" class="chart-export-checkbox" data-export-chart-id="intervals" /> Include in report</label></div>
+            <div id="chart-intervals" class="chart"></div>
+          </div>
+          <div class="chart-with-export">
+            <div class="chart-export-row"><label><input type="checkbox" class="chart-export-checkbox" data-export-chart-id="sensor-types" /> Include in report</label></div>
+            <div id="chart-erp-sensor-types" class="chart"></div>
+          </div>
           <div id="probe-impact-container"></div>
           <div id="sensors-table" class="panel"></div>
         </section>
         <section class="tab-content" id="tab-timeline">
           <div id="timeline-list" class="panel"></div>
-          <div id="chart-timeline" class="chart"></div>
+          <div class="chart-with-export">
+            <div class="chart-export-row"><label><input type="checkbox" class="chart-export-checkbox" data-export-chart-id="timeline" /> Include in report</label></div>
+            <div id="chart-timeline" class="chart"></div>
+          </div>
         </section>
         <section class="tab-content" id="tab-system">
           <div id="system-info" class="panel"></div>
@@ -98,7 +107,7 @@
       </section>
     </main>
   </div>
-  <script type="module" src="/static/js/app.js?v=1.5.5"></script>
+  <script type="module" src="/static/js/app.js?v=1.5.6"></script>
 </body>
 </html>
 

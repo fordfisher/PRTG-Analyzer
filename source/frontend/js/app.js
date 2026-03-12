@@ -1,4 +1,4 @@
-import { ChartManager } from "./charts.js?v=1.3";
+import { ChartManager } from "./charts.js?v=1.4";
 import {
   renderErrors,
   renderFindings,
@@ -11,10 +11,10 @@ import {
   renderSystemInfo,
   renderTimelineList,
   renderTimeframeSelector,
-} from "./renderers.js?v=1.3";
-import { getState, resetResultState, updateState } from "./state.js?v=1.3";
-import { debounce } from "./utils.js?v=1.3";
-import { buildViewModel } from "./view-model.js?v=1.3";
+} from "./renderers.js?v=1.4";
+import { getState, resetResultState, updateState } from "./state.js?v=1.4";
+import { debounce } from "./utils.js?v=1.4";
+import { buildViewModel } from "./view-model.js?v=1.4";
 
 const dropZone = document.getElementById("drop-zone");
 const fileInput = document.getElementById("file-input");
@@ -69,7 +69,7 @@ function renderApp(result) {
   renderStatusSnapshot(elements.statusSnapshot, vm, state);
   renderHealth(elements.health, vm);
   renderMetrics(elements.metrics, vm);
-  renderFindings(elements.findings, vm);
+  renderFindings(elements.findings, vm, state);
   renderErrors(elements.errorsToolbar, elements.errorsList, vm, state, (count) => {
     updateState({ showTopErrorsCount: count });
     renderApp(getState().lastResult);
@@ -78,6 +78,58 @@ function renderApp(result) {
   renderSensorsTable(elements.sensorsTable, vm);
   renderTimelineList(elements.timelineList, vm);
   chartManager.renderTab(state.activeTab, vm);
+  syncChartExportCheckboxes();
+}
+
+function syncChartExportCheckboxes() {
+  const state = getState();
+  const selected = new Set(state.exportSelectedCharts || []);
+  const checkboxes = document.querySelectorAll(".chart-export-checkbox");
+  checkboxes.forEach((input) => {
+    const id = input.getAttribute("data-export-chart-id");
+    if (!id) return;
+    input.checked = selected.has(id);
+    if (!input.dataset.bound) {
+      input.dataset.bound = "1";
+      input.addEventListener("change", () => {
+        const current = getState().exportSelectedCharts || [];
+        const next = input.checked
+          ? (current.includes(id) ? current : [...current, id])
+          : current.filter((c) => c !== id);
+        updateState({ exportSelectedCharts: next });
+      });
+    }
+  });
+  document.querySelectorAll(".finding-export-checkbox").forEach((input) => {
+    const idx = input.getAttribute("data-export-finding-index");
+    if (idx === null) return;
+    const index = parseInt(idx, 10);
+    if (Number.isNaN(index)) return;
+    const selected = Array.isArray(state.exportSelectedFindings) ? state.exportSelectedFindings : [];
+    input.checked = selected.includes(index);
+    if (!input.dataset.bound) {
+      input.dataset.bound = "1";
+      input.addEventListener("change", () => {
+        const current = getState().exportSelectedFindings || [];
+        const next = input.checked
+          ? (current.includes(index) ? current : [...current, index].sort((a, b) => a - b))
+          : current.filter((i) => i !== index);
+        updateState({ exportSelectedFindings: next });
+      });
+    }
+  });
+  const addAllBtn = document.querySelector(".probe-add-all-btn");
+  if (addAllBtn && !addAllBtn.dataset.bound) {
+    addAllBtn.dataset.bound = "1";
+    addAllBtn.addEventListener("click", () => {
+      const inputs = document.querySelectorAll('.chart-export-checkbox[data-export-chart-id^="probe-impact-"]');
+      const ids = Array.from(inputs).map((el) => el.getAttribute("data-export-chart-id")).filter(Boolean);
+      const current = getState().exportSelectedCharts || [];
+      const next = [...new Set([...current, ...ids])];
+      updateState({ exportSelectedCharts: next });
+      syncChartExportCheckboxes();
+    });
+  }
 }
 
 function handleViewToggle(timeframe) {
@@ -215,11 +267,29 @@ async function uploadViaFetch(file) {
 function attachExportButtons() {
   const btnJson = document.getElementById("btn-download-json");
   const btnHtml = document.getElementById("btn-download-html");
+  function buildExportSuffix(state, forHtml = false) {
+    const params = new URLSearchParams();
+    if (state.globalTimeFrame && state.globalTimeFrame !== "all") {
+      params.set("timeframe", state.globalTimeFrame);
+    }
+    const patterns = Array.isArray(state.exportSelectedErrorPatterns) ? state.exportSelectedErrorPatterns : [];
+    if (patterns.length) {
+      params.set("errors_patterns", patterns.join(","));
+    }
+    if (forHtml) {
+      const charts = Array.isArray(state.exportSelectedCharts) ? state.exportSelectedCharts : [];
+      params.set("charts", charts.join(","));
+      const findingIndices = Array.isArray(state.exportSelectedFindings) ? state.exportSelectedFindings : [];
+      params.set("findings", findingIndices.join(","));
+    }
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }
   if (btnJson) {
     btnJson.onclick = () => {
       const state = getState();
       if (!state.lastHash) return;
-      const suffix = state.globalTimeFrame === "all" ? "" : `?timeframe=${encodeURIComponent(state.globalTimeFrame)}`;
+      const suffix = buildExportSuffix(state);
       window.open(`/api/export/json/${state.lastHash}${suffix}`, "_blank");
     };
   }
@@ -227,7 +297,7 @@ function attachExportButtons() {
     btnHtml.onclick = () => {
       const state = getState();
       if (!state.lastHash) return;
-      const suffix = state.globalTimeFrame === "all" ? "" : `?timeframe=${encodeURIComponent(state.globalTimeFrame)}`;
+      const suffix = buildExportSuffix(state, true);
       window.open(`/api/export/html/${state.lastHash}${suffix}`, "_blank");
     };
   }
