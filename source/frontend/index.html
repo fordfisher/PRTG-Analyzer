@@ -6,9 +6,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <link rel="stylesheet" href="/static/css/styles.css?v=1.5.6" />
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/echarts-gl@2/dist/echarts-gl.min.js"></script>
+  <link rel="stylesheet" href="/static/css/styles.css" />
+  <script src="/static/vendor/echarts.min.js"></script>
 </head>
 <body>
   <div id="particle-bg"></div>
@@ -25,16 +24,12 @@
   </div>
   <div class="app-shell">
     <header class="app-header">
-      <div class="logo">PyPRTG_CLA v1.5.6</div>
-      <div id="update-banner" class="update-banner" hidden aria-hidden="true">
-        <span id="update-banner-text"></span>
-        <button id="update-btn" class="update-banner-btn">Update now</button>
-        <button id="update-dismiss" class="update-banner-dismiss" title="Dismiss">&times;</button>
-      </div>
-      <div class="subtitle">Just another tool</div>
+      <div class="logo">PyPRTG_CLA</div>
+      <span id="app-version" class="app-version" aria-label="Application version"></span>
+      <div class="subtitle">Core.log analyzer</div>
       <div class="header-spacer"></div>
       <span id="update-status" class="update-status" aria-live="polite"></span>
-      <button type="button" id="check-updates-btn" class="check-updates-btn" title="Check for a newer version">Check for updates</button>
+      <button type="button" id="check-updates-btn" class="check-updates-btn" title="Check for updates">Check updates</button>
     </header>
     <main class="app-main">
       <section class="upload-bar">
@@ -107,7 +102,7 @@
       </section>
     </main>
   </div>
-  <script type="module" src="/static/js/app.js?v=1.5.6"></script>
+  <script type="module" src="/static/js/app.js"></script>
 </body>
 </html>
 

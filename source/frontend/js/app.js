@@ -1,4 +1,4 @@
-import { ChartManager } from "./charts.js?v=1.4";
+import { ChartManager } from "./charts.js";
 import {
   renderErrors,
   renderFindings,
@@ -11,10 +11,10 @@ import {
   renderSystemInfo,
   renderTimelineList,
   renderTimeframeSelector,
-} from "./renderers.js?v=1.4";
-import { getState, resetResultState, updateState } from "./state.js?v=1.4";
-import { debounce } from "./utils.js?v=1.4";
-import { buildViewModel } from "./view-model.js?v=1.4";
+} from "./renderers.js";
+import { getState, resetResultState, updateState } from "./state.js";
+import { debounce } from "./utils.js";
+import { buildViewModel } from "./view-model.js";
 
 const dropZone = document.getElementById("drop-zone");
 const fileInput = document.getElementById("file-input");
@@ -459,6 +459,20 @@ async function checkForUpdate(userInitiated = false) {
   }
 }
 
+async function setBannerVersion() {
+  const el = document.getElementById("app-version");
+  if (!el) return;
+  try {
+    const resp = await fetch("/api/version");
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.version) el.textContent = `v${data.version}`;
+    }
+  } catch {
+    // ignore
+  }
+}
+setBannerVersion();
 checkForUpdate();
 document.getElementById("check-updates-btn")?.addEventListener("click", () => checkForUpdate(true));
 

@@ -2,6 +2,14 @@
 
 All notable changes to PyPRTG_CLA are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.5.61] — 2026-03-12
+
+### Changed
+
+- Version shown again in the app header banner (fetched from `/api/version`).
+
+---
+
 ## [1.5.5] — 2026-03-12
 
 ### Release candidate
@@ -52,6 +60,7 @@ All notable changes to PyPRTG_CLA are documented here. The format is based on [K
 
 - Core analysis, Status Data support, export, timeline, health score, and rules engine.
 
+[1.5.61]: https://github.com/fordfisher/PRTG-Analyzer/releases/tag/v1.5.61
 [1.5.5]: https://github.com/fordfisher/PRTG-Analyzer/releases/tag/v1.5.5
 [1.5.4]: https://github.com/fordfisher/PRTG-Analyzer/releases/tag/v1.5.4
 [1.5.3]: https://github.com/fordfisher/PRTG-Analyzer/releases/tag/v1.5.3

@@ -1,4 +1,4 @@
-# PyPRTG_CLA v1.5.5 — User Manual
+# PyPRTG_CLA v1.5.61 — User Manual
 
 > **100% deterministic · 11 hardcoded rules · Runs 100% locally — no data leaves your machine**
 
@@ -532,5 +532,5 @@ Click **More info** → **Run anyway**. The binary is unsigned. The full source 
 
 ---
 
-*PyPRTG_CLA v1.5.5 — PRTG Core Log Analyzer*  
+*PyPRTG_CLA v1.5.61 — PRTG Core Log Analyzer*  
 *All analysis is deterministic and based solely on the uploaded `Core.log` file and optional Status Data.*

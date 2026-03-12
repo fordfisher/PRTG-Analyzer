@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -8,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 import uuid
@@ -243,14 +245,14 @@ async def progress(job_id: str) -> StreamingResponse:
             if status in ("done", "error"):
                 yield b"event: end\ndata: {}\n\n"
                 return
-            await _sleep(0.5)
+            await asyncio.sleep(0.5)
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
-async def _sleep(seconds: float) -> None:
-    import asyncio
-    await asyncio.sleep(seconds)
+@app.get("/api/version")
+async def get_version() -> JSONResponse:
+    return JSONResponse(content={"version": ANALYZER_VERSION})
 
 
 @app.get("/api/result/{file_hash}")
@@ -443,8 +445,6 @@ async def apply_update() -> JSONResponse:
         creationflags=creationflags,
         close_fds=True,
     )
-
-    import threading
 
     def _launch_new_exe() -> None:
         try:
