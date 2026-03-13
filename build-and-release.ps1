@@ -1,6 +1,6 @@
-# Build PyPRTG_CLA EXE and create a release zip with apply-update.bat at folder root
-# so the in-app updater finds it after extracting. Run from repo root.
-# Usage: .\build-and-release.ps1  [optional: version override, e.g. 1.5.2]
+# Build PyPRTG_CLA one-file EXE (version in filename) and create minimal release zip.
+# Zip contains: PyPRTG_CLA_v{version}.exe, apply-update.bat, README.md, manual.html (no _internal, no manual.md).
+# Run from repo root. Usage: .\build-and-release.ps1  [optional: version override, e.g. 1.5.2]
 
 $ErrorActionPreference = "Stop"
 $repoRoot = $PSScriptRoot
@@ -14,36 +14,36 @@ if ($args.Count -ge 1) { $version = $args[0] }
 
 Write-Host "Version: $version"
 
-# Stop running EXE so build can overwrite
-Get-Process -Name "PyPRTG_CLA" -ErrorAction SilentlyContinue | Stop-Process -Force
+# Stop any running PyPRTG_CLA (old: PyPRTG_CLA.exe; new: PyPRTG_CLA_vX.Y.Z.exe)
+Get-Process | Where-Object { $_.Name -like "PyPRTG_CLA*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Build
+# Build one-file EXE (output: dist/PyPRTG_CLA_v{version}.exe)
 python -m PyInstaller PRTG_Analyzer.spec --noconfirm
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$buildDir = Join-Path $repoRoot "dist\PyPRTG_CLA"
-$internalBat = Join-Path $buildDir "_internal\apply-update.bat"
-$rootBat = Join-Path $buildDir "apply-update.bat"
-
-# Required: copy apply-update.bat to folder root so the release zip contains it at root
-if (Test-Path $internalBat) {
-    Copy-Item -Path $internalBat -Destination $rootBat -Force
-    Write-Host "Copied apply-update.bat to folder root for release zip."
-} else {
-    Write-Warning "apply-update.bat not found in _internal; release zip may fail for old updater clients."
-}
-
-# Create versioned folder and zip for GitHub release
 $versionedName = "PyPRTG_CLA_v$version"
 $distDir = Join-Path $repoRoot "dist"
+$singleExe = Join-Path $distDir "$versionedName.exe"
 $versionedDir = Join-Path $distDir $versionedName
 $zipPath = Join-Path $distDir "$versionedName.zip"
 
-if (Test-Path $versionedDir) { Remove-Item -Recurse -Force $versionedDir }
-Start-Sleep -Seconds 2
-Copy-Item -Path $buildDir -Destination $versionedDir -Recurse
+if (-not (Test-Path $singleExe)) {
+    Write-Error "Build did not produce $singleExe"
+    exit 1
+}
 
-# Zip (ensure apply-update.bat is at root inside the zip); wait for file handles to release
+# Minimal release folder: exe, apply-update.bat, README.md, manual.html
+if (Test-Path $versionedDir) { Remove-Item -Recurse -Force $versionedDir }
+New-Item -ItemType Directory -Path $versionedDir -Force | Out-Null
+
+Move-Item -Path $singleExe -Destination (Join-Path $versionedDir "$versionedName.exe") -Force
+Copy-Item -Path (Join-Path $repoRoot "apply-update.bat") -Destination $versionedDir -Force
+Copy-Item -Path (Join-Path $repoRoot "README.md") -Destination $versionedDir -Force
+Copy-Item -Path (Join-Path $repoRoot "manual.html") -Destination $versionedDir -Force
+
+Write-Host "Release folder: $versionedDir (exe, apply-update.bat, README.md, manual.html)"
+
+# Zip for GitHub release
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 $zipDone = $false
 foreach ($attempt in 1..3) {
@@ -59,4 +59,4 @@ foreach ($attempt in 1..3) {
 if (-not $zipDone) { Write-Warning "Could not create zip (files locked). Run: Compress-Archive -Path '$versionedDir' -DestinationPath '$zipPath' -Force" }
 
 Write-Host "Release zip: $zipPath"
-Write-Host "Upload this zip to the GitHub release for v$version so the in-app updater finds apply-update.bat at folder root."
+Write-Host "Upload this zip to the GitHub release for v$version."

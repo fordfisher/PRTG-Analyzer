@@ -48,9 +48,11 @@ def _normalize_timeframe_count(core: Dict[str, Any], timeframe: Optional[str]) -
     if count < 1:
         return None
     segments = core.get("error_patterns_by_segment") or []
-    if not segments:
+    snapshots = core.get("segment_snapshots") or []
+    n = len(segments) if segments else len(snapshots)
+    if n < 1:
         return None
-    return min(count, len(segments))
+    return min(count, n)
 
 
 def _aggregate_error_patterns(core: Dict[str, Any], timeframe: Optional[str], *, limit: int) -> list[Dict[str, Any]]:
@@ -121,11 +123,7 @@ def _build_timeframed_core(core: Dict[str, Any], count: int) -> Dict[str, Any]:
     active_snapshot = snapshots[active_snapshot_idx] if snapshots else {}
     result_core = deepcopy(core)
     _overlay_snapshot_fields(result_core, active_snapshot)
-
-    if snapshots:
-        newest = snapshots[0]
-        result_core["global_impact_distribution"] = deepcopy(newest.get("global_impact_distribution") or {})
-        result_core["interval_distribution"] = deepcopy(newest.get("interval_distribution") or {})
+    # Keep active_snapshot's distributions so interval + sensor-type charts show exact core.log data for the chosen restart.
 
     err_per = core.get("errors_per_segment") or []
     warn_per = core.get("warnings_per_segment") or []

@@ -1,4 +1,4 @@
-import { escapeHtml, setHtmlIfChanged } from "./utils.js?v=1.3";
+import { escapeHtml, setHtmlIfChanged } from "./utils.js";
 
 export function renderTimeframeSelector(element, vm, state, onChange) {
   if (!element) return;
@@ -374,21 +374,34 @@ export function renderTimelineList(element, vm) {
 
 export function renderNowToggle(element, vm, state, onToggle) {
   if (!element) return;
-  if (!vm.hasStatusSnapshot) {
-    setHtmlIfChanged(element, "");
-    return;
-  }
+  const hasSnapshot =
+    !!(state.lastFullResult?.status_snapshot || state.lastResult?.status_snapshot || vm.statusSnapshot);
   const isNow = state.globalTimeFrame === "now";
   setHtmlIfChanged(
     element,
     `<span class="view-toggle-label">View:</span>
      <div class="view-toggle-group">
-       <button type="button" class="view-toggle-btn${isNow ? " active" : ""}" data-view="now">Now</button>
-       <button type="button" class="view-toggle-btn${!isNow ? " active" : ""}" data-view="historical">Historical</button>
+       <button type="button"
+               class="view-toggle-btn${hasSnapshot ? "" : " view-toggle-btn--disabled"}${isNow ? " active" : ""}"
+               data-view="now"
+               ${hasSnapshot ? "" : 'aria-disabled="true" disabled'}>
+         Now
+       </button>
+       <button type="button"
+               class="view-toggle-btn${!isNow ? " active" : ""}"
+               data-view="historical">
+         Historical
+       </button>
      </div>`
   );
   element.querySelectorAll(".view-toggle-btn").forEach((btn) => {
-    btn.onclick = () => onToggle(btn.dataset.view === "now" ? "now" : "all");
+    const view = btn.dataset.view;
+    if (!view) return;
+    if (view === "now" && !hasSnapshot) {
+      btn.onclick = null;
+      return;
+    }
+    btn.onclick = () => onToggle(view === "now" ? "now" : "all");
   });
 }
 

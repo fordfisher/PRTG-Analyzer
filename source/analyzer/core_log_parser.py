@@ -319,6 +319,10 @@ def parse_core_log(path: Path) -> CoreLogResult:
 
         base = current_snapshot if current_snapshot is not None else _snapshot_from_result(res)
         current_snapshot = _copy_snapshot(base)
+        # Do not carry over segment-specific data; each segment gets data only from its own log block.
+        current_snapshot["global_impact_distribution"] = {}
+        current_snapshot["interval_distribution"] = {}
+        current_snapshot["probes"] = []
         segment_probe_summary_reset = False
         segment_global_impact_reset = False
         segment_interval_reset = False

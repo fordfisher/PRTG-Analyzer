@@ -1,5 +1,5 @@
 ---
-description: Before asking user to test the app/EXE, build the EXE and run it first
+description: Before asking user to test the app/EXE, build the EXE and run it first; use a proper restart so backend/frontend changes take effect
 alwaysApply: true
 ---
 
@@ -7,8 +7,17 @@ alwaysApply: true
 
 Before asking the user to test the application (EXE or in-browser UI):
 
-1. **Build an updated EXE** if the project has a PyInstaller spec (e.g. `PRTG_Analyzer.spec`): run the build from repo root, then copy `apply-update.bat` from `dist/PyPRTG_CLA/_internal/` to `dist/PyPRTG_CLA/` if needed for release layout.
+1. **Build an updated EXE** if the project has a PyInstaller spec (e.g. `PRTG_Analyzer.spec`): run the build from repo root. The spec produces a one-file EXE with version in the filename (`dist/PyPRTG_CLA_v{version}.exe`). For release packaging (minimal zip: exe, apply-update.bat, README.md, manual.html), use `.\build-and-release.ps1`.
 2. **Run the app** (either the newly built EXE or `python run_analyzer.py` from `source/`) so it is already running when you hand off to the user.
 3. **Then** ask the user to test (e.g. open http://127.0.0.1:8077 and try the flow).
 
 Do not ask the user to "please test the EXE" or "run the app and test" without having built and started it first.
+
+## Proper restart for manual testing
+
+After backend or frontend changes, a **proper restart** is required or the UI may still behave like the old code (e.g. slider charts not updating).
+
+- **Stop any existing process** on the app port (e.g. 8077) before starting, e.g. PowerShell: `Get-NetTCPConnection -LocalPort 8077 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }`.
+- **Start the app fresh** from `source/`: `python run_analyzer.py` (run in background so it stays up).
+- If you changed only frontend JS/CSS, tell the user to **hard refresh** the browser (Ctrl+F5 or Ctrl+Shift+R) so cached scripts are not used.
+- After restart, have the user **re-upload** the log/file if they are re-testing; in-memory caches are cleared on restart.

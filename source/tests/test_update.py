@@ -140,11 +140,11 @@ class TestApplyUpdate:
             current_dir.mkdir()
             mock_install_dir.return_value = current_dir
 
-            # Zip: PyPRTG_CLA_v99.0/apply-update.bat and PyPRTG_CLA_v99.0/PyPRTG_CLA.exe
+            # Zip: minimal package with versioned exe, apply-update.bat (no _internal)
             zip_buf = BytesIO()
             with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
                 zf.writestr("PyPRTG_CLA_v99.0/apply-update.bat", "@echo off\n")
-                zf.writestr("PyPRTG_CLA_v99.0/PyPRTG_CLA.exe", b"")
+                zf.writestr("PyPRTG_CLA_v99.0/PyPRTG_CLA_v99.0.exe", b"")
             zip_buf.seek(0)
             zip_bytes = zip_buf.read()
 
@@ -173,7 +173,7 @@ class TestApplyUpdate:
         popen_calls = [c[0][0] for c in mock_popen.call_args_list]
         assert any("apply-update.bat" in str(c) for c in popen_calls)
 
-        # On Windows, launch uses cmd /C start ... exe
+        # On Windows, launch uses cmd /C start ... exe (versioned: PyPRTG_CLA_v99.0.exe)
         if sys.platform == "win32":
             start_calls = [
                 args
@@ -181,7 +181,7 @@ class TestApplyUpdate:
                 if isinstance(args, (list, tuple)) and len(args) >= 5 and args[2] == "start"
             ]
             assert start_calls, "Expected Popen(cmd /C start ... exe)"
-            assert any("PyPRTG_CLA.exe" in str(args) for args in start_calls)
+            assert any("PyPRTG_CLA_v99.0.exe" in str(args) for args in start_calls)
 
 
 class TestVersionTuple:

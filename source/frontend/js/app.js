@@ -480,3 +480,7 @@ setBannerVersion();
 checkForUpdate();
 document.getElementById("check-updates-btn")?.addEventListener("click", () => checkForUpdate(true));
 
+document.getElementById("manual-btn")?.addEventListener("click", () => {
+  window.open("/manual", "_blank");
+});
+

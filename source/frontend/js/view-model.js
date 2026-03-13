@@ -1,4 +1,4 @@
-import { filterTimelineByWindow, parseTimestamp, formatDateTime } from "./utils.js?v=1.3";
+import { filterTimelineByWindow, parseTimestamp, formatDateTime } from "./utils.js";
 
 function aggregateErrorsForTimeFrame(core, timeframe) {
   const segments = Array.isArray(core?.error_patterns_by_segment) ? core.error_patterns_by_segment : [];
@@ -42,49 +42,34 @@ function aggregateErrorsForTimeFrame(core, timeframe) {
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
-function buildErpByType(core) {
-  const impactWeights = {
-    "Very low": 1,
-    "Very Low": 1,
-    Low: 2,
-    Medium: 3,
-    High: 4,
-    "Very High": 5,
-    "Very high": 5,
-  };
-
-  const totals = {};
+/** Exact sensor counts by type from core.log (sum across impact levels). No weighting or ERP. */
+function buildSensorCountByType(core) {
   const counts = {};
-  for (const [level, info] of Object.entries(core?.global_impact_distribution || {})) {
-    const weight = impactWeights[level] || 1;
+  for (const info of Object.values(core?.global_impact_distribution || {})) {
     for (const [sensorType, count] of Object.entries(info?.sensors || {})) {
-      const numericCount = Number(count) || 0;
-      if (!numericCount) continue;
-      totals[sensorType] = (totals[sensorType] || 0) + weight * numericCount;
-      counts[sensorType] = (counts[sensorType] || 0) + numericCount;
+      const n = Number(count) || 0;
+      if (n > 0) counts[sensorType] = (counts[sensorType] || 0) + n;
     }
   }
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 20);
+}
 
-  const impactFactor = {};
-  for (const [sensorType, totalCount] of Object.entries(counts)) {
-    impactFactor[sensorType] = totalCount > 0 ? (totals[sensorType] || 0) / totalCount : 1;
-  }
-
-  const erpByType = {};
-  for (const [intervalKey, info] of Object.entries(core?.interval_distribution || {})) {
-    const seconds = Number(intervalKey);
-    if (!seconds || seconds <= 0) continue;
+/** Exact sensor counts by type from status snapshot (HTML impact_distribution). Used when "now" is selected. */
+function buildSensorCountByTypeFromStatus(snapshot) {
+  const dist = snapshot?.impact_distribution || {};
+  const counts = {};
+  for (const info of Object.values(dist)) {
     for (const [sensorType, count] of Object.entries(info?.sensors || {})) {
-      const numericCount = Number(count) || 0;
-      if (!numericCount) continue;
-      const baseLoad = (numericCount * 60) / seconds;
-      erpByType[sensorType] = (erpByType[sensorType] || 0) + baseLoad * (impactFactor[sensorType] || 1);
+      const n = Number(count) || 0;
+      if (n > 0) counts[sensorType] = (counts[sensorType] || 0) + n;
     }
   }
-
-  return Object.entries(erpByType)
-    .map(([name, value]) => ({ name, value: Number(value.toFixed(2)) }))
-    .sort((left, right) => right.value - left.value)
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
     .slice(0, 20);
 }
 
@@ -139,6 +124,13 @@ export function buildViewModel(result, state) {
     ? fullCore.segment_snapshots[0]
     : null;
 
+  const isNow = state.globalTimeFrame === "now";
+  const sensorCountByType = isNow && statusSnapshot?.impact_distribution
+    ? buildSensorCountByTypeFromStatus(statusSnapshot)
+    : buildSensorCountByType(core);
+  const showProbeDistribution = !isNow;
+  const refreshBuckets = isNow ? [] : (Array.isArray(result?.refresh_rate_distribution) ? result.refresh_rate_distribution : []);
+
   return {
     result,
     core,
@@ -150,16 +142,17 @@ export function buildViewModel(result, state) {
     probesBySensorCount,
     probesByErp,
     busiestProbe: probesByErp[0] || null,
-    probeImpactCharts: probesBySensorCount.slice(0, 10),
-    hiddenProbeCount: Math.max(0, probes.length - 10),
+    probeImpactCharts: showProbeDistribution ? probesBySensorCount.slice(0, 10) : [],
+    hiddenProbeCount: showProbeDistribution ? Math.max(0, probes.length - 10) : 0,
     aggregatedErrors,
     visibleErrors: aggregatedErrors.slice(0, state.showTopErrorsCount),
     timelinePoints,
     errorCountLabel: aggregatedErrors.length
       ? `Showing 1-${Math.min(state.showTopErrorsCount, aggregatedErrors.length)} of ${aggregatedErrors.length}`
       : "No errors",
-    erpByType: buildErpByType(core),
-    refreshBuckets: Array.isArray(result?.refresh_rate_distribution) ? result.refresh_rate_distribution : [],
+    sensorCountByType,
+    refreshBuckets,
+    showProbeDistribution,
     segments: Array.isArray(core.error_patterns_by_segment) ? core.error_patterns_by_segment : [],
   };
 }

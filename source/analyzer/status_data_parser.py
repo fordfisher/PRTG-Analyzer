@@ -173,6 +173,7 @@ def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
 
     impact_pairs = _find_section(sections, "Impact on System Performance")
     impact_dist: Dict[str, Dict[str, Any]] = {}
+    impact_has_data = False
     for key, val in impact_pairs:
         key_text = re.sub(r"<[^>]+>", "", key).strip()
         normalized = _IMPACT_LOWER.get(key_text.lower())
@@ -181,6 +182,8 @@ def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
             sensors: Dict[str, int] = {}
             for m in re.finditer(r"(\d+)x\s+([\w._ -]+)", val):
                 sensors[m.group(2).strip()] = int(m.group(1))
+            if total > 0 or sensors:
+                impact_has_data = True
             impact_dist[normalized] = {"total": total, "sensors": sensors}
     for level in _IMPACT_LEVELS:
         impact_dist.setdefault(level, {"total": 0, "sensors": {}})
@@ -190,7 +193,7 @@ def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
         k != "impact_distribution" and v is not None
         for k, v in result.items()
     )
-    if not has_data:
+    if not has_data and not impact_has_data:
         return None
 
     result["source_format"] = "html"

@@ -140,6 +140,26 @@ async def index() -> HTMLResponse:
     return HTMLResponse(index_path.read_text(encoding="utf-8"))
 
 
+@app.get("/manual", response_class=HTMLResponse)
+async def manual() -> HTMLResponse:
+    """
+    Serve the local manual.html file from disk in a new tab.
+    The content always comes from the manual.html file next to the
+    EXE (packaged) or from the repo root in dev.
+    """
+    install_dir = _install_dir()
+    manual_path = install_dir / "manual.html"
+    if not manual_path.exists():
+        # Fallback to project root in dev if manual is there
+        repo_root = install_dir.parent
+        alt = repo_root / "manual.html"
+        if alt.exists():
+            manual_path = alt
+        else:
+            raise HTTPException(status_code=404, detail="manual.html not found on disk.")
+    return HTMLResponse(manual_path.read_text(encoding="utf-8"))
+
+
 @app.post("/api/analyze")
 async def analyze(
     background_tasks: BackgroundTasks,
