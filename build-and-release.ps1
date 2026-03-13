@@ -17,13 +17,19 @@ Write-Host "Version: $version"
 # Stop any running PyPRTG_CLA (old: PyPRTG_CLA.exe; new: PyPRTG_CLA_vX.Y.Z.exe)
 Get-Process | Where-Object { $_.Name -like "PyPRTG_CLA*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
-# Build one-file EXE (output: dist/PyPRTG_CLA_v{version}.exe)
+# Build one-file EXE (output: dist/PyPRTG_CLA.exe)
 python -m PyInstaller PRTG_Analyzer.spec --noconfirm
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $versionedName = "PyPRTG_CLA_v$version"
 $distDir = Join-Path $repoRoot "dist"
+$baseExe = Join-Path $distDir "PyPRTG_CLA.exe"
 $singleExe = Join-Path $distDir "$versionedName.exe"
+
+# Rename to versioned filename (spec outputs PyPRTG_CLA.exe)
+if ((Test-Path $baseExe) -and -not (Test-Path $singleExe)) {
+    Move-Item -Path $baseExe -Destination $singleExe -Force
+}
 $versionedDir = Join-Path $distDir $versionedName
 $zipPath = Join-Path $distDir "$versionedName.zip"
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-ANALYZER_VERSION = "1.5.7"
+ANALYZER_VERSION = "1.5.8"
 
 GITHUB_OWNER = "fordfisher"
 GITHUB_REPO = "PRTG-Analyzer"

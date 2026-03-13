@@ -7,6 +7,33 @@ from .erp_calculator import calculate_total_requests_per_min
 from .models import AnalysisResult, CoreLogResult, EvidenceItem, Finding
 
 
+def _recommended_cpu_cores(total_sensors: int) -> int:
+    if total_sensors >= 10000:
+        return 16
+    if total_sensors >= 5000:
+        return 12
+    if total_sensors >= 2500:
+        return 8
+    return 4
+
+
+def _recommended_ram_gb(total_sensors: int) -> int:
+    if total_sensors >= 10000:
+        return 64
+    if total_sensors >= 5000:
+        return 32
+    if total_sensors >= 2500:
+        return 16
+    return 8
+
+
+def _impact_totals(core: CoreLogResult) -> tuple[int, int, int]:
+    medium = (core.global_impact_distribution.get("Medium").total if core.global_impact_distribution.get("Medium") else 0)
+    high = (core.global_impact_distribution.get("High").total if core.global_impact_distribution.get("High") else 0)
+    very_high = (core.global_impact_distribution.get("Very High").total if core.global_impact_distribution.get("Very High") else 0)
+    return medium, high, very_high
+
+
 def _tone(over_ratio: float) -> str:
     # over_ratio = actual/threshold - 1.0
     if over_ratio <= 0.10:
@@ -36,13 +63,7 @@ def evaluate(core: CoreLogResult) -> AnalysisResult:
     # RULE 1: CPU cores vs sensor count
     sensors = core.total_sensors or 0
     cpu = core.cpu_count or 0
-    required = 4
-    if sensors >= 2500 and sensors < 5000:
-        required = 8
-    elif sensors >= 5000 and sensors < 10000:
-        required = 12
-    elif sensors >= 10000:
-        required = 16
+    required = _recommended_cpu_cores(sensors)
     if required > 0 and cpu > 0 and cpu < int(required * 0.95):
         score -= 10
         _add_finding(
@@ -61,13 +82,7 @@ def evaluate(core: CoreLogResult) -> AnalysisResult:
 
     # RULE 2: RAM sizing (tier-based shortcut + formula)
     ram_gb = (core.total_ram_mb or 0) / 1024.0
-    min_tier_gb = 8
-    if sensors >= 2500 and sensors < 5000:
-        min_tier_gb = 16
-    elif sensors >= 5000 and sensors < 10000:
-        min_tier_gb = 32
-    elif sensors >= 10000:
-        min_tier_gb = 64
+    min_tier_gb = _recommended_ram_gb(sensors)
     if ram_gb > 0 and ram_gb < min_tier_gb * 0.90:
         score -= 10
         _add_finding(
@@ -195,9 +210,7 @@ def evaluate(core: CoreLogResult) -> AnalysisResult:
 
     # RULE 16: impact distribution warning
     total = core.total_sensors or 0
-    medium = (core.global_impact_distribution.get("Medium").total if core.global_impact_distribution.get("Medium") else 0)
-    high = (core.global_impact_distribution.get("High").total if core.global_impact_distribution.get("High") else 0)
-    vhigh = (core.global_impact_distribution.get("Very High").total if core.global_impact_distribution.get("Very High") else 0)
+    medium, high, vhigh = _impact_totals(core)
     if total > 0:
         ratio = (medium + high + vhigh) / float(total)
         if ratio > 0.30:

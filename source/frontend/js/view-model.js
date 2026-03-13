@@ -1,5 +1,19 @@
 import { filterTimelineByWindow, parseTimestamp, formatDateTime } from "./utils.js";
 
+function toTopSensorTypeCounts(distribution) {
+  const counts = {};
+  for (const info of Object.values(distribution || {})) {
+    for (const [sensorType, count] of Object.entries(info?.sensors || {})) {
+      const n = Number(count) || 0;
+      if (n > 0) counts[sensorType] = (counts[sensorType] || 0) + n;
+    }
+  }
+  return Object.entries(counts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 20);
+}
+
 function aggregateErrorsForTimeFrame(core, timeframe) {
   const segments = Array.isArray(core?.error_patterns_by_segment) ? core.error_patterns_by_segment : [];
   if (!segments.length) {
@@ -44,33 +58,12 @@ function aggregateErrorsForTimeFrame(core, timeframe) {
 
 /** Exact sensor counts by type from core.log (sum across impact levels). No weighting or ERP. */
 function buildSensorCountByType(core) {
-  const counts = {};
-  for (const info of Object.values(core?.global_impact_distribution || {})) {
-    for (const [sensorType, count] of Object.entries(info?.sensors || {})) {
-      const n = Number(count) || 0;
-      if (n > 0) counts[sensorType] = (counts[sensorType] || 0) + n;
-    }
-  }
-  return Object.entries(counts)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 20);
+  return toTopSensorTypeCounts(core?.global_impact_distribution);
 }
 
 /** Exact sensor counts by type from status snapshot (HTML impact_distribution). Used when "now" is selected. */
 function buildSensorCountByTypeFromStatus(snapshot) {
-  const dist = snapshot?.impact_distribution || {};
-  const counts = {};
-  for (const info of Object.values(dist)) {
-    for (const [sensorType, count] of Object.entries(info?.sensors || {})) {
-      const n = Number(count) || 0;
-      if (n > 0) counts[sensorType] = (counts[sensorType] || 0) + n;
-    }
-  }
-  return Object.entries(counts)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 20);
+  return toTopSensorTypeCounts(snapshot?.impact_distribution);
 }
 
 function buildSliderModel(core) {

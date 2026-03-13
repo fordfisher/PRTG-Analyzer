@@ -12,7 +12,6 @@ import threading
 import time
 import urllib.request
 import uuid
-import zipfile
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, Optional
 
@@ -21,6 +20,16 @@ from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app_api_helpers import filter_export_errors, parse_csv_int_param, parse_csv_param
+from app_result_helpers import (
+    cache_path,
+    invalidate_result_memo,
+    load_cached_result,
+    prune_jobs,
+    result_for_timeframe,
+    write_json,
+)
+from app_update_helpers import build_release_result, extract_update_zip, resolve_executable_path, version_tuple
 from analyzer.analysis import apply_timeframe, run_analysis
 from analyzer.status_data_parser import parse_status_data
 from analyzer.version import ANALYZER_VERSION, GITHUB_OWNER, GITHUB_REPO
@@ -286,16 +295,7 @@ async def export_json(
     errors_patterns: Optional[str] = Query(None),
 ) -> JSONResponse:
     result = _result_for_timeframe(file_hash, timeframe)
-    if errors_patterns:
-        patterns = [p.strip() for p in str(errors_patterns).split(",") if p.strip()]
-        if patterns and isinstance(result, dict) and isinstance(result.get("core"), dict):
-            core = dict(result["core"])
-            top = core.get("top_errors") or []
-            if isinstance(top, list):
-                core["top_errors"] = [e for e in top if str(e.get("pattern", "")) in patterns]
-            result = dict(result)
-            result["core"] = core
-    return JSONResponse(content=result)
+    return JSONResponse(content=filter_export_errors(result, errors_patterns))
 
 
 @app.get("/api/export/html/{file_hash}", response_class=HTMLResponse)
@@ -311,18 +311,9 @@ async def export_html(
     from analyzer.report_generator import build_enterprise_html_report
 
     data = _result_for_timeframe(file_hash, timeframe)
-    patterns = [p.strip() for p in str(errors_patterns).split(",") if p.strip()] if errors_patterns else None
-    if charts is not None:
-        chart_ids = [p.strip() for p in str(charts).split(",") if p.strip()]
-    else:
-        chart_ids = None
-    findings_indices = None
-    if findings is not None:
-        parts = [p.strip() for p in str(findings).split(",") if p.strip()]
-        try:
-            findings_indices = [int(x) for x in parts]
-        except ValueError:
-            findings_indices = []
+    patterns = parse_csv_param(errors_patterns) or None
+    chart_ids = parse_csv_param(charts) if charts is not None else None
+    findings_indices = parse_csv_int_param(findings)
     html = build_enterprise_html_report(
         data,
         errors_time_frame=errors_timeframes or timeframe,
@@ -344,7 +335,7 @@ _UPDATE_CACHE_TTL = 60 * 60  # 1 hour
 
 def _version_tuple(v: str) -> tuple:
     """Turn '1.3' or 'v1.3' into (1, 3) for comparison."""
-    return tuple(int(x) for x in v.lstrip("v").split("."))
+    return version_tuple(v)
 
 
 def _check_github_release() -> Dict[str, Any]:
@@ -362,23 +353,7 @@ def _check_github_release() -> Dict[str, Any]:
         log.warning("Update check failed: %s", exc)
         return {"error": str(exc), "up_to_date": True, "current": ANALYZER_VERSION, "latest": ANALYZER_VERSION}
 
-    tag = data.get("tag_name", "")
-    latest = tag.lstrip("v")
-
-    zip_url = ""
-    for asset in data.get("assets", []):
-        if asset.get("name", "").endswith(".zip"):
-            zip_url = asset["browser_download_url"]
-            break
-
-    up_to_date = _version_tuple(ANALYZER_VERSION) >= _version_tuple(latest) if latest else True
-    result = {
-        "current": ANALYZER_VERSION,
-        "latest": latest,
-        "up_to_date": up_to_date,
-        "download_url": zip_url,
-        "release_url": data.get("html_url", ""),
-    }
+    result = build_release_result(ANALYZER_VERSION, data)
     _UPDATE_CACHE["result"] = result
     _UPDATE_CACHE["checked_at"] = now
     return result
@@ -426,15 +401,7 @@ async def apply_update() -> JSONResponse:
         urllib.request.urlretrieve(zip_url, str(zip_path))
 
         log.info("Extracting to %s", new_dir)
-        with zipfile.ZipFile(str(zip_path), "r") as zf:
-            zf.extractall(str(parent_dir))
-
-        if not new_dir.exists():
-            extracted = [d for d in parent_dir.iterdir() if d.is_dir() and d.name.startswith("PyPRTG_CLA")]
-            for d in extracted:
-                if d != current_dir and d.name != zip_path.stem:
-                    d.rename(new_dir)
-                    break
+        extract_update_zip(zip_path, parent_dir, new_dir, current_dir)
 
         zip_path.unlink(missing_ok=True)
     except Exception as exc:
@@ -447,9 +414,7 @@ async def apply_update() -> JSONResponse:
         raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
 
     # Prefer versioned exe (PyPRTG_CLA_vX.Y.Z.exe), else legacy PyPRTG_CLA.exe
-    exe_path = new_dir / f"PyPRTG_CLA_v{new_ver}.exe"
-    if not exe_path.exists():
-        exe_path = new_dir / "PyPRTG_CLA.exe"
+    exe_path = resolve_executable_path(new_dir, new_ver)
     if not exe_path.exists():
         raise HTTPException(status_code=500, detail="PyPRTG_CLA.exe not found in new version.")
 

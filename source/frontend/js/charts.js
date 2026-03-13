@@ -253,8 +253,6 @@ export class ChartManager {
       if (typeof intervalsChart.resize === "function") intervalsChart.resize();
     }
 
-    // Dispose and recreate so every bar (including bottom/last) updates when timeframe changes (e.g. oracletablespace).
-    this.disposeChart("chart-erp-sensor-types");
     const sensorTypesContainer = document.getElementById("chart-erp-sensor-types");
     const sensorTypesChart = this.getOrCreate("chart-erp-sensor-types");
     if (sensorTypesChart && sensorTypesContainer) {
@@ -271,7 +269,7 @@ export class ChartManager {
         xAxis: { type: "value", name: "Sensor count", nameTextStyle: { color: "#9fb5ff" }, axisLabel: { color: "#b4c6ff" } },
         yAxis: { type: "category", data: sensorCountByType.map((entry) => entry.name), axisLabel: { color: "#b4c6ff" } },
         series: [{ type: "bar", data: sensorCountByType.map((entry) => entry.value), itemStyle: { color: "#ff6b6b" } }],
-      });
+      }, true);
       sensorTypesChart.resize();
     }
 

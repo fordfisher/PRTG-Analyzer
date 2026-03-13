@@ -77,6 +77,39 @@ class AnalysisResult(BaseModel):
     findings: List[Finding]
 
 
+class TimelinePoint(BaseModel):
+    timestamp: str
+    kind: str
+    label: str
+
+
+class RefreshBucket(BaseModel):
+    interval_sec: int
+    interval_label: str
+    count: int
+
+
+class AnalysisMetadata(BaseModel):
+    analyzer_version: str
+    analysis_timestamp: str
+
+
+class AnalysisPayload(BaseModel):
+    """
+    Canonical backend result payload shared between API and frontend.
+    Keep this stable to avoid regressions in slider/chart rendering.
+    """
+
+    core: Dict[str, Any]
+    score: int
+    findings: List[Dict[str, Any]]
+    refresh_rate_distribution: List[Dict[str, Any]]
+    calculated_requests_per_min: float
+    timeline: List[Dict[str, Any]]
+    metadata: AnalysisMetadata
+    status_snapshot: Optional[Dict[str, Any]] = None
+
+
 class CoreLogResult(BaseModel):
     # === GLOBAL INFO ===
     server_name: str = ""

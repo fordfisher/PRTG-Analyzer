@@ -58,6 +58,20 @@ function buildCurrentViewModel() {
   return state.lastResult ? buildViewModel(state.lastResult, state) : null;
 }
 
+function applyResultAndRender(result, { asFullResult = false } = {}) {
+  const patch = { lastResult: result };
+  if (asFullResult) patch.lastFullResult = result;
+  updateState(patch);
+  renderApp(result);
+}
+
+async function fetchResultByHash(fileHash, timeframe = null) {
+  const suffix = timeframe ? `?timeframe=${encodeURIComponent(timeframe)}` : "";
+  const response = await fetch(`/api/result/${fileHash}${suffix}`);
+  if (!response.ok) return null;
+  return response.json();
+}
+
 function renderApp(result) {
   const state = getState();
   updateState({ lastResult: result });
@@ -147,35 +161,22 @@ async function setGlobalTimeFrame(timeframe) {
   const rangeInput = elements.timeframeWrap?.querySelector("input[type=range]");
   if (rangeInput) rangeInput.disabled = true;
   try {
-    if (timeframe === "now") {
-      if (state.lastFullResult) {
-        updateState({ lastResult: state.lastFullResult });
-        renderApp(state.lastFullResult);
-      }
-      return;
-    }
-    if (timeframe === "all") {
-      if (state.lastFullResult) {
-        updateState({ lastResult: state.lastFullResult });
-        renderApp(state.lastFullResult);
-      }
+    if (timeframe === "now" || timeframe === "all") {
+      if (state.lastFullResult) applyResultAndRender(state.lastFullResult);
       return;
     }
     if (!state.lastHash) return;
 
     const cached = state.timeframeResults.get(timeframe);
     if (cached) {
-      updateState({ lastResult: cached });
-      renderApp(cached);
+      applyResultAndRender(cached);
       return;
     }
 
-    const response = await fetch(`/api/result/${state.lastHash}?timeframe=${encodeURIComponent(timeframe)}`);
-    if (!response.ok) return;
-    const data = await response.json();
+    const data = await fetchResultByHash(state.lastHash, timeframe);
+    if (!data) return;
     state.timeframeResults.set(timeframe, data);
-    updateState({ lastResult: data });
-    renderApp(data);
+    applyResultAndRender(data);
   } finally {
     if (rangeInput) rangeInput.disabled = false;
   }
@@ -239,12 +240,11 @@ async function uploadViaFetch(file) {
           setStatus("Error: missing result hash.");
           return;
         }
-        const resultResponse = await fetch(`/api/result/${lastHash}`);
-        if (!resultResponse.ok) {
+        const result = await fetchResultByHash(lastHash);
+        if (!result) {
           setStatus("Error: failed to load analysis result.");
           return;
         }
-        const result = await resultResponse.json();
         resetResultState(result, lastHash);
         setProgress(1);
         setStatus("Analysis complete.");

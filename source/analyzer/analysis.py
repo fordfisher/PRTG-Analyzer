@@ -8,23 +8,19 @@ from typing import Any, Dict, Optional
 
 from .core_log_parser import parse_core_log
 from .erp_calculator import calculate_total_requests_per_min, refresh_rate_distribution
-from .models import AnalysisResult, CoreLogResult
+from .models import AnalysisPayload, AnalysisResult, CoreLogResult
 from .rules_engine import evaluate
 from .timeline_analyzer import build_timeline
 from .version import ANALYZER_VERSION
 
 
-def run_analysis(core_log_path: str, status_snapshot: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    core = parse_core_log(Path(core_log_path))
-    result = evaluate(core)
-
+def _serialize_analysis(core: CoreLogResult, analysis: AnalysisResult) -> Dict[str, Any]:
     refresh = refresh_rate_distribution(core)
     timeline = build_timeline(core)
-
-    data: Dict[str, Any] = {
+    payload: Dict[str, Any] = {
         "core": core.model_dump(),
-        "score": result.score,
-        "findings": [f.model_dump() for f in result.findings],
+        "score": analysis.score,
+        "findings": [f.model_dump() for f in analysis.findings],
         "refresh_rate_distribution": [asdict(b) for b in refresh],
         "calculated_requests_per_min": calculate_total_requests_per_min(core),
         "timeline": [asdict(p) for p in timeline],
@@ -33,6 +29,15 @@ def run_analysis(core_log_path: str, status_snapshot: Optional[Dict[str, Any]] =
             "analysis_timestamp": datetime.now(timezone.utc).isoformat(),
         },
     }
+    # Validate contract at boundary; model_dump keeps response shape.
+    return AnalysisPayload.model_validate(payload).model_dump(exclude_none=True)
+
+
+def run_analysis(core_log_path: str, status_snapshot: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Parse Core.log and return the API/frontend contract payload."""
+    core = parse_core_log(Path(core_log_path))
+    result = evaluate(core)
+    data = _serialize_analysis(core, result)
     if status_snapshot is not None:
         data["status_snapshot"] = status_snapshot
     return data
@@ -190,7 +195,10 @@ def _build_timeframed_core(core: Dict[str, Any], count: int) -> Dict[str, Any]:
 
 
 def apply_timeframe(data: Dict[str, Any], timeframe: Optional[str]) -> Dict[str, Any]:
-    """Return a copy of result fully rebuilt for the given timeframe window."""
+    """
+    Return a copy of an analysis payload rebuilt for a timeframe.
+    Keeps the same JSON contract consumed by frontend charts/slider.
+    """
     if not timeframe or timeframe == "all":
         return data
     core = data.get("core") or {}
@@ -209,4 +217,5 @@ def apply_timeframe(data: Dict[str, Any], timeframe: Optional[str]) -> Dict[str,
     result["refresh_rate_distribution"] = [asdict(bucket) for bucket in refresh_rate_distribution(core_model)]
     result["calculated_requests_per_min"] = calculate_total_requests_per_min(core_model)
     result["timeline"] = [asdict(point) for point in build_timeline(core_model)]
+    AnalysisPayload.model_validate(result)
     return result

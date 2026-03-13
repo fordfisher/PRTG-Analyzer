@@ -14,7 +14,6 @@ build/
 dist/
 source/build/
 source/dist/
-*.spec
 *.exe
 
 # pytest

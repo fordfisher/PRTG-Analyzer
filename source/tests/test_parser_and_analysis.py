@@ -127,6 +127,31 @@ def test_analysis_smoke() -> None:
         path.unlink(missing_ok=True)
 
 
+def test_analysis_payload_contract_keys_and_types() -> None:
+    path = _write_temp_log(_SAMPLE_ANALYSIS_LOG)
+    try:
+        result = run_analysis(str(path))
+        for key in (
+            "core",
+            "score",
+            "findings",
+            "refresh_rate_distribution",
+            "calculated_requests_per_min",
+            "timeline",
+            "metadata",
+        ):
+            assert key in result
+        assert isinstance(result["core"], dict)
+        assert isinstance(result["findings"], list)
+        assert isinstance(result["refresh_rate_distribution"], list)
+        assert isinstance(result["timeline"], list)
+        assert isinstance(result["metadata"], dict)
+        assert result["metadata"]["analyzer_version"] == ANALYZER_VERSION
+        assert isinstance(result["metadata"]["analysis_timestamp"], str)
+    finally:
+        path.unlink(missing_ok=True)
+
+
 def test_slider_data_contract() -> None:
     """The analysis result must provide all fields the frontend slider needs."""
     path = _write_temp_log(_SAMPLE_ANALYSIS_LOG)

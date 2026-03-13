@@ -425,6 +425,35 @@ def _sensor_type_distribution_from_core(core: Dict[str, Any]) -> list[Dict[str, 
     )[:20]
 
 
+def _build_report_chart_payload(
+    result: Dict[str, Any],
+    core: Dict[str, Any],
+    rr: list[Dict[str, Any]],
+    timeline: list[Dict[str, Any]],
+    include_charts: Optional[list[str]],
+) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "core": {"global_impact_distribution": core.get("global_impact_distribution", {})},
+        "refresh_rate_distribution": rr,
+    }
+    if include_charts is None:
+        return payload
+
+    payload["core"] = dict(core)
+    payload["timeline"] = timeline
+    payload["calculated_requests_per_min"] = result.get("calculated_requests_per_min")
+    payload["sensor_type_distribution"] = _sensor_type_distribution_from_core(core)
+    payload["probes_by_erp"] = sorted(
+        [
+            {"name": probe.get("name", ""), "erp": probe.get("erp", 0)}
+            for probe in (core.get("probes") or [])
+            if probe and probe.get("erp") is not None
+        ],
+        key=lambda entry: -(entry.get("erp") or 0),
+    )
+    return payload
+
+
 def build_enterprise_html_report(
     result: Dict[str, Any],
     errors_time_frame: Optional[str] = None,
@@ -479,23 +508,7 @@ def build_enterprise_html_report(
         result = dict(result)
         result["core"] = core
 
-    payload: Dict[str, Any] = {
-        "core": {"global_impact_distribution": core.get("global_impact_distribution", {})},
-        "refresh_rate_distribution": rr,
-    }
-    if include_charts is not None:
-        payload["core"] = dict(core)
-        payload["timeline"] = timeline
-        payload["calculated_requests_per_min"] = result.get("calculated_requests_per_min")
-        payload["sensor_type_distribution"] = _sensor_type_distribution_from_core(core)
-        payload["probes_by_erp"] = sorted(
-            [
-                {"name": p.get("name", ""), "erp": p.get("erp", 0)}
-                for p in (core.get("probes") or [])
-                if p and p.get("erp") is not None
-            ],
-            key=lambda x: -(x.get("erp") or 0),
-        )
+    payload = _build_report_chart_payload(result, core, rr, timeline, include_charts)
     payload_json = json.dumps(payload, ensure_ascii=False)
 
     charts_grid_html = _build_charts_grid_html(want_charts, core)
