@@ -1,4 +1,4 @@
-PyPRTG_CLA v1.5.61
+PyPRTG_CLA v1.5.62
 ================================
 
 A standalone tool that analyzes PRTG `Core.log` files and presents
@@ -9,7 +9,7 @@ Package contents (release zip)
 ------------------------------
 
 ```
-PyPRTG_CLA_v1.5.61/
+PyPRTG_CLA_v1.5.62/
 ├── PyPRTG_CLA.exe                         Main application (self-contained)
 ├── apply-update.bat                       Used by in-app updater
 ├── _internal/                             Runtime and assets
@@ -109,7 +109,7 @@ python -m pytest tests/ -v
 .\build-and-release.ps1
 ```
 
-   This runs PyInstaller with `PRTG_Analyzer.spec`, copies `apply-update.bat` to the folder root, and creates `dist/PyPRTG_CLA_v{version}.zip` for GitHub release. Upload that zip to the release tag (e.g. `v1.5.61`) so the in-app updater can download it.
+   This runs PyInstaller with `PRTG_Analyzer.spec`, copies `apply-update.bat` to the folder root, and creates `dist/PyPRTG_CLA_v{version}.zip` for GitHub release. Upload that zip to the release tag (e.g. `v1.5.62`) so the in-app updater can download it.
 
 Notes
 -----
