@@ -170,3 +170,67 @@ def test_html_format_has_source_format() -> None:
     result = parse_status_data(path)
     assert result is not None
     assert result["source_format"] == "html"
+
+
+_GERMAN_STATUS_HTML = """
+<html>
+<body>
+<div class="screenbox">
+  <h2>Softwareversion und Serverinformation</h2>
+  <ul>
+    <li><span>PRTG Version</span><span>PRTG Network Monitor 26.1.116.1498 x64</span></li>
+    <li><span>CPU-Last des Servers</span><span>9%</span></li>
+  </ul>
+</div>
+<div class="screenbox">
+  <h2>Objekte in der Datenbank</h2>
+  <ul>
+    <li><span>Probes</span><span>4</span></li>
+    <li><span>Gruppen</span><span>93</span></li>
+    <li><span>Geräte</span><span>78</span></li>
+    <li><span>Sensoren</span><span>734</span></li>
+    <li><span>Kanäle</span><span>2968</span></li>
+    <li><span>Anfragen/Sekunde</span><span>11</span></li>
+  </ul>
+</div>
+<div class="screenbox">
+  <h2>Sensoren nach Auswirkung auf die Systemleistung</h2>
+  <ul>
+    <li><span>Sehr niedrig</span><span>1x ping</span></li>
+    <li><span>Niedrig</span><span>2x snmpcpu</span></li>
+    <li><span>Mittel</span><span>3x snmptraffic</span></li>
+    <li><span>Hoch</span><span>4x wmiprocess</span></li>
+    <li><span>Sehr hoch</span><span>0x other</span></li>
+  </ul>
+</div>
+<div class="screenbox">
+  <h2>Aktivität des Webservers</h2>
+  <ul>
+    <li><span>Slow Request Ratio</span><span> 8%</span></li>
+  </ul>
+</div>
+</body>
+</html>
+"""
+
+
+def test_parse_german_html_status_data() -> None:
+    path = _write_html(_GERMAN_STATUS_HTML)
+    result = parse_status_data(path)
+    assert result is not None
+    assert result["source_format"] == "html"
+    # Basic numeric fields from localized labels
+    assert result["server_cpu_load_pct"] == 9.0
+    assert result["total_sensors"] == 734
+    assert result["probes"] == 4
+    assert result["devices"] == 78
+    assert result["groups"] == 93
+    assert result["channels"] == 2968
+    assert result["requests_per_second"] == 11
+    # Impact distribution should be parsed and mapped to canonical levels
+    impact = result["impact_distribution"]
+    assert impact["Very low"]["total"] == 1
+    assert impact["Low"]["total"] == 2
+    assert impact["Medium"]["total"] == 3
+    assert impact["High"]["total"] == 4
+    assert impact["Very high"]["total"] == 0

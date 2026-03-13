@@ -71,9 +71,9 @@ Everything in the main analysis comes *directly* from the log. When a Status Dat
 
 There is no installation step. The entire application ships as a single file: `PyPRTG_CLA.exe`
 
-After starting the EXE and opening `http://127.0.0.1:8077`, you should see the simple start screen with the upload area:
+After starting the EXE and opening `http://127.0.0.1:8077`, you should see the start screen with the upload area:
 
-![Start screen with Core.log upload area](images/start-screen.png)
+![Start screen with Core.log and Status Data upload](images/01-start-screen.png)
 
 ### Starting the application
 
@@ -144,7 +144,7 @@ Every uploaded file is identified by its **SHA-256 hash**. Re-uploading the same
 
 The Overview tab is the landing view after a successful analysis.
 
-![Overview tab with health score and charts](images/overview-tab.png)
+![Overview tab with health score and key charts](images/02-overview-tab.png)
 
 ### View toggle (Now / Historical)
 
@@ -202,7 +202,8 @@ This panel shows metrics from the Status Data file (bundle creation time). For *
 
 Lists every rule that triggered during analysis. Only rules that actually fire are shown.
 
-![Findings tab with rule cards](images/findings-tab.png)
+![Findings tab with rule cards and recommendations](images/03-findings-tab.png)
+
 
 Each finding card includes:
 
@@ -224,6 +225,8 @@ See [Section 13](#13-health-score--rules-engine) for the complete list of all 11
 ## 7. Tab: Top Errors
 
 Shows the most frequently occurring error patterns from all `ERRR`-level lines in the log.
+
+![Top Errors tab with normalized error patterns](images/04-top-errors-tab.png)
 
 ### How errors are processed
 

@@ -19,6 +19,16 @@ _COUNT_RE = re.compile(r"(\d+)x\s+")
 _IMPACT_LEVELS = ("Very low", "Low", "Medium", "High", "Very high")
 _IMPACT_LOWER = {k.lower(): k for k in _IMPACT_LEVELS}
 
+# Known localized labels for impact levels (currently German),
+# mapped back to the canonical English keys in ``_IMPACT_LEVELS``.
+_IMPACT_ALIASES = {
+    "sehr niedrig": "Very low",
+    "niedrig": "Low",
+    "mittel": "Medium",
+    "hoch": "High",
+    "sehr hoch": "Very high",
+}
+
 
 class _SectionExtractor(HTMLParser):
     """Single-pass HTML parser that collects key-value pairs grouped by <h2> section."""
@@ -139,28 +149,40 @@ def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
 
     result: Dict[str, Any] = {}
 
-    sw_pairs = _find_section(sections, "Software Version") or _find_section(sections, "Server Information")
+    # English: "Software Version and Server Information"
+    # German:  "Softwareversion und Serverinformation"
+    sw_pairs = (
+        _find_section(sections, "Software Version")
+        or _find_section(sections, "Server Information")
+        or _find_section(sections, "Softwareversion")
+        or _find_section(sections, "Serverinformation")
+    )
     for key, val in sw_pairs:
-        if "CPU Load" in key:
+        key_lower = key.lower()
+        if "cpu load" in key_lower or "cpu-last des servers" in key_lower:
             result["server_cpu_load_pct"] = _extract_pct(val)
 
-    db_pairs = _find_section(sections, "Database Objects")
+    # English: "Database Objects"
+    # German:  "Objekte in der Datenbank"
+    db_pairs = _find_section(sections, "Database Objects") or _find_section(sections, "Objekte in der Datenbank")
     for key, val in db_pairs:
         lower = key.lower().strip()
-        if lower == "sensors":
+        if lower in ("sensors", "sensoren"):
             result["total_sensors"] = _extract_int(val)
         elif lower == "probes":
             result["probes"] = _extract_int(val)
-        elif lower == "devices":
+        elif lower in ("devices", "geräte"):
             result["devices"] = _extract_int(val)
-        elif lower == "groups":
+        elif lower in ("groups", "gruppen"):
             result["groups"] = _extract_int(val)
-        elif lower == "channels":
+        elif lower in ("channels", "kanäle"):
             result["channels"] = _extract_int(val)
-        elif lower == "requests/second":
+        elif lower in ("requests/second", "anfragen/sekunde"):
             result["requests_per_second"] = _extract_int(val)
 
-    web_pairs = _find_section(sections, "Web Server Activity")
+    # English: "Web Server Activity"
+    # German:  "Aktivität des Webservers"
+    web_pairs = _find_section(sections, "Web Server Activity") or _find_section(sections, "Aktivität des Webservers")
     for key, val in web_pairs:
         if "Slow Request Ratio" in key:
             result["slow_request_ratio_pct"] = _extract_pct(val)
@@ -171,12 +193,17 @@ def _parse_html_status(html_text: str) -> Optional[Dict[str, Any]]:
         elif key.strip() == "HTTP Requests > 5000 ms":
             result["http_requests_gt_5000ms_pct"] = _extract_pct(val)
 
-    impact_pairs = _find_section(sections, "Impact on System Performance")
+    # English: "Sensors Sorted by Impact on System Performance"
+    # German:  "Sensoren nach Auswirkung auf die Systemleistung"
+    impact_pairs = _find_section(sections, "Impact on System Performance") or _find_section(
+        sections, "Auswirkung auf die Systemleistung"
+    )
     impact_dist: Dict[str, Dict[str, Any]] = {}
     impact_has_data = False
     for key, val in impact_pairs:
         key_text = re.sub(r"<[^>]+>", "", key).strip()
-        normalized = _IMPACT_LOWER.get(key_text.lower())
+        key_norm = key_text.lower()
+        normalized = _IMPACT_LOWER.get(key_norm) or _IMPACT_ALIASES.get(key_norm)
         if normalized:
             total = _sum_sensor_counts(val)
             sensors: Dict[str, int] = {}
