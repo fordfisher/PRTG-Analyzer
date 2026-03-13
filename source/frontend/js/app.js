@@ -190,6 +190,7 @@ function switchTab(id) {
   if (vm) {
     chartManager.renderTab(id, vm);
     chartManager.resizeVisible();
+    syncChartExportCheckboxes();
   }
 }
 
@@ -277,7 +278,10 @@ function attachExportButtons() {
       params.set("errors_patterns", patterns.join(","));
     }
     if (forHtml) {
-      const charts = Array.isArray(state.exportSelectedCharts) ? state.exportSelectedCharts : [];
+      const checked = Array.from(document.querySelectorAll(".chart-export-checkbox:checked"))
+        .map((el) => el.getAttribute("data-export-chart-id"))
+        .filter(Boolean);
+      const charts = checked.length > 0 ? checked : (state.exportSelectedCharts || []);
       params.set("charts", charts.join(","));
       const findingIndices = Array.isArray(state.exportSelectedFindings) ? state.exportSelectedFindings : [];
       params.set("findings", findingIndices.join(","));

@@ -5,7 +5,6 @@ import hashlib
 import json
 import logging
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -424,14 +423,13 @@ async def apply_update() -> JSONResponse:
         raise HTTPException(status_code=500, detail=f"Download/extract failed: {exc}")
 
     bat_path = new_dir / "apply-update.bat"
-    bat_in_internal = new_dir / "_internal" / "apply-update.bat"
     if not bat_path.exists():
-        if bat_in_internal.exists():
-            shutil.copy2(str(bat_in_internal), str(bat_path))
-        else:
-            raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
+        raise HTTPException(status_code=500, detail="apply-update.bat not found in new version.")
 
-    exe_path = new_dir / "PyPRTG_CLA.exe"
+    # Prefer versioned exe (PyPRTG_CLA_vX.Y.Z.exe), else legacy PyPRTG_CLA.exe
+    exe_path = new_dir / f"PyPRTG_CLA_v{new_ver}.exe"
+    if not exe_path.exists():
+        exe_path = new_dir / "PyPRTG_CLA.exe"
     if not exe_path.exists():
         raise HTTPException(status_code=500, detail="PyPRTG_CLA.exe not found in new version.")
 

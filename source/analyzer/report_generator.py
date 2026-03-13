@@ -104,7 +104,6 @@ _REPORT_CHART_META: Dict[str, tuple[str, str]] = {
     "stability-radar": ("Stability Radar", "chartStabilityRadar"),
     "erp-orbit": ("ERP Load Orbit", "chartErpOrbit"),
     "ram-usage": ("Memory Utilization", "chartRamUsage"),
-    "error-shockwave": ("Error Activity Over Time", "chartErrorShockwave"),
     "erp-hot-probes": ("ERP Hot Probes", "chartErpHotProbes"),
     "intervals": ("Refresh Intervals", "chartIntervals"),
     "sensor-types": ("Sensor Type Distribution", "chartSensorTypes"),
@@ -115,7 +114,8 @@ _REPORT_CHART_META: Dict[str, tuple[str, str]] = {
 def _build_charts_grid_html(want_charts: set[str], core: Dict[str, Any]) -> str:
     parts = []
     probes_by_id = {int(p.get("probe_id", -1)): p for p in (core.get("probes") or []) if p and p.get("probe_id") is not None}
-    # Static charts in stable order, then probe-impact charts sorted by probe_id
+    # Static charts: full width for bar/list-style (erp-hot-probes, intervals, sensor-types, timeline), half for rest
+    full_width_charts = {"erp-hot-probes", "intervals", "sensor-types", "timeline"}
     static_order = list(_REPORT_CHART_META.keys())
     for cid in static_order:
         if cid not in want_charts:
@@ -124,8 +124,9 @@ def _build_charts_grid_html(want_charts: set[str], core: Dict[str, Any]) -> str:
         if not meta:
             continue
         title, div_id = meta
+        span = 12 if cid in full_width_charts else 6
         parts.append(
-            f'<div class="card" style="grid-column:span 6">'
+            f'<div class="card" style="grid-column:span {span}">'
             f"<h2>{_html_escape(title)}</h2>"
             f'<div id="{_html_escape(div_id)}" class="chart"></div>'
             f"</div>"
@@ -145,7 +146,7 @@ def _build_charts_grid_html(want_charts: set[str], core: Dict[str, Any]) -> str:
         title = f"Probe: {probe.get('name') or ('Probe ' + str(probe_id))}"
         div_id = f"chartProbeImpact{probe_id}"
         parts.append(
-            f'<div class="card" style="grid-column:span 6">'
+            f'<div class="card" style="grid-column:span 12">'
             f"<h2>{_html_escape(title)}</h2>"
             f'<div id="{_html_escape(div_id)}" class="chart"></div>'
             f"</div>"
@@ -274,31 +275,6 @@ def _build_charts_script(want_charts: set[str]) -> str:
           detail: { formatter: () => usedPct.toFixed(0) + '% used', color: '#e4f0ff', fontSize: 14 },
           data: [{ value: usedPct }]
         }]
-      });
-    })();"""
-        )
-    if "error-shockwave" in want_charts:
-        blocks.append(
-            """
-    (() => {
-      const el = document.getElementById('chartErrorShockwave');
-      if (!el) return;
-      const chart = echarts.init(el);
-      const timeline = RESULT.timeline || [];
-      const buckets = {};
-      timeline.forEach(function(p) {
-        if (p && p.timestamp && p.kind === 'error') {
-          const day = String(p.timestamp).slice(0, 10);
-          buckets[day] = (buckets[day] || 0) + 1;
-        }
-      });
-      const entries = Object.entries(buckets).sort(function(a, b) { return a[0] < b[0] ? -1 : 1; });
-      chart.setOption({
-        backgroundColor: 'transparent',
-        tooltip: { trigger: 'axis' },
-        xAxis: { type: 'category', data: entries.map(function(e) { return e[0]; }), axisLabel: { color: '#b4c6ff' } },
-        yAxis: { type: 'value', axisLabel: { color: '#b4c6ff' } },
-        series: [{ type: 'line', data: entries.map(function(e) { return e[1]; }), smooth: true, showSymbol: false, lineStyle: { color: '#22c55e' }, areaStyle: { opacity: 0.15, color: '#22c55e' } }]
       });
     })();"""
         )
@@ -563,7 +539,7 @@ def build_enterprise_html_report(
     pre{{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.25);padding:10px;border-radius:12px;border:1px solid rgba(125,249,255,.15);}}
     @media (max-width: 900px){{.card{{grid-column:span 12;}}}}
 
-    /* Print/PDF export */
+    /* Manual PDF from HTML: A4, pagination (break-inside: avoid), PyPRTG_CLA design preserved in print */
     @page {{ size: A4; margin: 12mm; }}
     @media print {{
       html,body{{ background:#fff !important; color:#000 !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }}

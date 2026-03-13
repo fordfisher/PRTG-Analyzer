@@ -1,4 +1,4 @@
-import { clamp, setHtmlIfChanged } from "./utils.js?v=1.3";
+import { clamp, setHtmlIfChanged } from "./utils.js";
 
 /** Bar color by impact level (reuse app palette). */
 const IMPACT_COLORS = {
@@ -118,7 +118,6 @@ export class ChartManager {
         <div class="chart"><div class="chart-header">ERP Load Orbit</div><div class="chart-subtitle">Approximate total ERP load versus safe capacity across probes.</div>${exportRow("erp-orbit")}<div id="chart-erp-orbit" class="chart-inner"></div></div>
         <div class="chart"><div class="chart-header">Memory Utilization</div><div class="chart-subtitle">Physical RAM usage on the PRTG core server.</div>${exportRow("ram-usage")}<div id="chart-ram-usage" class="chart-inner"></div></div>
         <div class="chart"><div class="chart-header">Sensor Impact Levels</div><div class="chart-subtitle">Distribution of sensors by performance impact on the system.</div>${exportRow("impact-donut")}<div id="chart-impact-donut" class="chart-inner"></div></div>
-        <div class="chart"><div class="chart-header">Error Activity Over Time</div><div class="chart-subtitle">Daily error volume based on timeline analysis.</div>${exportRow("error-shockwave")}<div id="chart-error-shockwave" class="chart-inner"></div></div>
         <div class="chart"><div class="chart-header">ERP Hot Probes</div><div class="chart-subtitle">Top probes by ERP load.</div>${exportRow("erp-hot-probes")}<div id="chart-erp-hot-probes" class="chart-inner"></div></div>
       </div>`
     );
@@ -216,24 +215,6 @@ export class ChartManager {
         tooltip: { trigger: "item" },
         legend: { textStyle: { color: "#b4c6ff" } },
         series: [{ type: "pie", radius: ["45%", "70%"], center: ["50%", "50%"], label: { color: "#e4f0ff" }, data }],
-      });
-    }
-
-    const shockChart = this.getOrCreate("chart-error-shockwave");
-    if (shockChart) {
-      const buckets = {};
-      for (const point of timelinePoints) {
-        if (!point?.timestamp || point.kind !== "error") continue;
-        const day = point.timestamp.slice(0, 10);
-        buckets[day] = (buckets[day] || 0) + 1;
-      }
-      const entries = Object.entries(buckets).sort(([left], [right]) => (left < right ? -1 : 1));
-      shockChart.setOption({
-        backgroundColor: "transparent",
-        tooltip: { trigger: "axis" },
-        xAxis: { type: "category", data: entries.map(([day]) => day), axisLabel: { color: "#b4c6ff" } },
-        yAxis: { type: "value", axisLabel: { color: "#b4c6ff" } },
-        series: [{ type: "line", data: entries.map(([, count]) => count), smooth: true, showSymbol: false, lineStyle: { color: "#22c55e" }, areaStyle: { opacity: 0.15, color: "#22c55e" } }],
       });
     }
 

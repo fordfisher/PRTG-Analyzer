@@ -4,7 +4,6 @@ export const EXPORTABLE_CHART_IDS = [
   "erp-orbit",
   "ram-usage",
   "impact-donut",
-  "error-shockwave",
   "erp-hot-probes",
   "intervals",
   "sensor-types",

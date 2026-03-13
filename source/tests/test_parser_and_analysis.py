@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
+import json
 import tempfile
 import time
 from pathlib import Path
@@ -258,6 +260,45 @@ def test_report_include_charts_parameter() -> None:
     html_no_findings = build_enterprise_html_report(result_with_findings, include_finding_indices=[])
     assert "Findings & Recommendations" not in html_no_findings
     assert "Test finding" not in html_no_findings
+
+
+def test_api_export_html_includes_probe_charts_when_requested(tmp_path, monkeypatch) -> None:
+    """GET /api/export/html/{file_hash}?charts=probe-impact-1,impact-donut returns HTML with probe chart."""
+    monkeypatch.setattr(app_module, "CACHE_DIR", tmp_path)
+    app_module.JOBS.clear()
+    app_module.RESULT_MEMO.clear()
+
+    result = {
+        "core": {
+            "server_name": "Test",
+            "global_impact_distribution": {"Low": {"total": 10, "sensors": {"Ping": 5, "HTTP": 5}}},
+            "total_probes": 1,
+            "probes": [
+                {
+                    "probe_id": 1,
+                    "name": "Local Probe",
+                    "impact_distribution": {"Low": {"total": 5, "sensors": {"Ping": 3, "HTTP": 2}}},
+                },
+            ],
+        },
+        "findings": [],
+        "refresh_rate_distribution": [{"interval_label": "1m", "count": 50}],
+        "timeline": [],
+        "calculated_requests_per_min": 5000,
+        "score": 0,
+        "metadata": {"analyzer_version": ANALYZER_VERSION},
+    }
+    file_hash = hashlib.sha256(b"probe-export-test").hexdigest()
+    cache_path = tmp_path / f"{file_hash}.json"
+    cache_path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+
+    client = TestClient(app_module.app)
+    resp = client.get(f"/api/export/html/{file_hash}?charts=probe-impact-1,impact-donut")
+    assert resp.status_code == 200
+    html = resp.text
+    assert "chartProbeImpact1" in html
+    assert "Probe: Local Probe" in html
+    assert "chartImpact" in html
 
 
 # Minimal log lines for CPU splitting, SystemID, and license owner parsing
