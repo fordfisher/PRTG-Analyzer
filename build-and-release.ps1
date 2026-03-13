@@ -32,16 +32,22 @@ if (-not (Test-Path $singleExe)) {
     exit 1
 }
 
-# Minimal release folder: exe, apply-update.bat, README.md, manual.html
+# Minimal release folder: exe (both versioned name and legacy PyPRTG_CLA.exe), apply-update.bat, README.md, manual.html
 if (Test-Path $versionedDir) { Remove-Item -Recurse -Force $versionedDir }
 New-Item -ItemType Directory -Path $versionedDir -Force | Out-Null
 
-Move-Item -Path $singleExe -Destination (Join-Path $versionedDir "$versionedName.exe") -Force
+$versionedExe = Join-Path $versionedDir "$versionedName.exe"
+Move-Item -Path $singleExe -Destination $versionedExe -Force
+
+# Backwards compatibility: also ship a non-versioned PyPRTG_CLA.exe so older updaters that look
+# only for PyPRTG_CLA.exe still work with the new minimal zip layout.
+Copy-Item -Path $versionedExe -Destination (Join-Path $versionedDir "PyPRTG_CLA.exe") -Force
+
 Copy-Item -Path (Join-Path $repoRoot "apply-update.bat") -Destination $versionedDir -Force
 Copy-Item -Path (Join-Path $repoRoot "README.md") -Destination $versionedDir -Force
 Copy-Item -Path (Join-Path $repoRoot "manual.html") -Destination $versionedDir -Force
 
-Write-Host "Release folder: $versionedDir (exe, apply-update.bat, README.md, manual.html)"
+Write-Host "Release folder: $versionedDir (exe, legacy exe name, apply-update.bat, README.md, manual.html)"
 
 # Zip for GitHub release
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
